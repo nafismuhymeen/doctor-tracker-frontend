@@ -5,7 +5,7 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
-    const { isLoading, admin } = useAuth();
+    const { isLoading, isAuthenticated } = useAuth();
 
     if (isLoading) {
         return (
@@ -20,7 +20,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         );
     }
 
-    if (!admin) {
+    if (!isAuthenticated) {
         return null;
     }
 

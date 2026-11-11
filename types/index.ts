@@ -8,9 +8,6 @@ export interface User {
     doctorId?: string;
 }
 
-// Deprecated alias for backwards compatibility during migration
-export type Admin = User;
-
 export interface AppUser {
     id: string;
     name: string;

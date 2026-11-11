@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -53,16 +53,33 @@ export function getLoginErrorMessage(error: unknown): string {
     return "Unable to sign in. Please verify your credentials.";
 }
 
-export default function LoginPage() {
+/**
+ * Validates and sanitizes a destination URL for redirect after login.
+ * Strictly accepts relative paths starting with a single '/' and rejects
+ * protocol-relative URLs ('//') and Windows-style backslash escape paths.
+ */
+export function sanitizeNextUrl(next: string | null | undefined): string | null {
+    if (!next) return null;
+    if (next.startsWith("/") && !next.startsWith("//") && !next.includes("\\")) {
+        return next;
+    }
+    return null;
+}
+
+function LoginForm() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const nextParam = searchParams.get("next");
+    const targetUrl = sanitizeNextUrl(nextParam) || "/dashboard";
+
     const { login, isAuthenticated, isLoading } = useAuth();
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         if (!isLoading && isAuthenticated) {
-            router.replace("/dashboard");
+            router.replace(targetUrl);
         }
-    }, [isLoading, isAuthenticated, router]);
+    }, [isLoading, isAuthenticated, router, targetUrl]);
 
     const {
         register,
@@ -99,7 +116,7 @@ export default function LoginPage() {
                 toast.success("Welcome back!", {
                     description: `Signed in as ${response.data.user.name}`,
                 });
-                login(response.data.user);
+                login(response.data.user, targetUrl);
             }
         } catch (error: unknown) {
             const message = getLoginErrorMessage(error);
@@ -224,5 +241,13 @@ export default function LoginPage() {
                 </Card>
             </div>
         </div>
+    );
+}
+
+export default function LoginPage() {
+    return (
+        <Suspense fallback={null}>
+            <LoginForm />
+        </Suspense>
     );
 }

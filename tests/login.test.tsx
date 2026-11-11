@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { ApiError } from "@/lib/api";
-import { getLoginErrorMessage, loginSchema } from "@/app/login/page";
+import { getLoginErrorMessage, loginSchema, sanitizeNextUrl } from "@/app/login/page";
 
 describe("Login Error Message Formatter", () => {
     it("maps ACCOUNT_DISABLED code to clear explanation", () => {
@@ -73,3 +73,35 @@ describe("Login Schema Validation", () => {
     });
 });
 
+describe("sanitizeNextUrl", () => {
+    it("permits valid relative destination paths", () => {
+        expect(sanitizeNextUrl("/dashboard")).toBe("/dashboard");
+        expect(sanitizeNextUrl("/patients")).toBe("/patients");
+        expect(sanitizeNextUrl("/doctors/doc-123?tab=schedule")).toBe(
+            "/doctors/doc-123?tab=schedule"
+        );
+    });
+
+    it("rejects protocol-relative urls starting with //", () => {
+        expect(sanitizeNextUrl("//evil.com")).toBe(null);
+        expect(sanitizeNextUrl("//evil.com/phish")).toBe(null);
+    });
+
+    it("rejects backslash-containing bypass attempts", () => {
+        expect(sanitizeNextUrl("/\\evil.com")).toBe(null);
+        expect(sanitizeNextUrl("/doctors\\evil")).toBe(null);
+        expect(sanitizeNextUrl("\\evil.com")).toBe(null);
+    });
+
+    it("rejects absolute or protocol URLs", () => {
+        expect(sanitizeNextUrl("https://evil.com")).toBe(null);
+        expect(sanitizeNextUrl("http://evil.com")).toBe(null);
+        expect(sanitizeNextUrl("javascript:alert(1)")).toBe(null);
+    });
+
+    it("returns null for empty, null, or undefined values", () => {
+        expect(sanitizeNextUrl("")).toBe(null);
+        expect(sanitizeNextUrl(null)).toBe(null);
+        expect(sanitizeNextUrl(undefined)).toBe(null);
+    });
+});

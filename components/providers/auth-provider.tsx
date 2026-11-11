@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -18,8 +18,6 @@ interface AuthContextType {
     logout: () => Promise<void>;
     logoutAll: () => Promise<void>;
     can: (action: Action, ctx?: PermissionContext) => boolean;
-    // Legacy compatibility alias
-    admin: User | null;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -31,12 +29,12 @@ const AuthContext = createContext<AuthContextType>({
     logout: async () => {},
     logoutAll: async () => {},
     can: () => false,
-    admin: null,
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const queryClient = useQueryClient();
     const router = useRouter();
+    const wasSignedInRef = useRef(false);
 
     const { data: response, isLoading } = useQuery({
         queryKey: qk.auth.me(),
@@ -50,7 +48,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const role = user?.role ?? null;
     const isAuthenticated = !!user;
 
+    useEffect(() => {
+        if (user) {
+            wasSignedInRef.current = true;
+        }
+    }, [user]);
+
     const logout = useCallback(async () => {
+        wasSignedInRef.current = false;
         try {
             await api.post("/auth/logout");
         } catch {
@@ -62,6 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, [queryClient, router]);
 
     const logoutAll = useCallback(async () => {
+        wasSignedInRef.current = false;
         try {
             await api.post("/auth/logout-all");
         } catch {
@@ -75,6 +81,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Handle mid-use session revocation/termination
     useEffect(() => {
         setSessionExpiredHandler((message: string) => {
+            // Only toast + redirect if the user was previously signed in.
+            // Failed startup checks or refetches after intentional logout remain silent.
+            if (!wasSignedInRef.current) {
+                return;
+            }
+            wasSignedInRef.current = false;
             toast.error(message);
             queryClient.clear();
             router.push("/login");
@@ -87,6 +99,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const login = useCallback(
         (newUser: User, redirectTo?: string) => {
+            wasSignedInRef.current = true;
             queryClient.setQueryData(qk.auth.me(), {
                 success: true,
                 message: "Current user retrieved successfully",
@@ -94,7 +107,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             });
 
             // Target destination by role or explicit redirectTo
-            if (redirectTo && redirectTo.startsWith("/") && !redirectTo.startsWith("//")) {
+            if (
+                redirectTo &&
+                redirectTo.startsWith("/") &&
+                !redirectTo.startsWith("//") &&
+                !redirectTo.includes("\\")
+            ) {
                 router.push(redirectTo);
             } else {
                 router.push("/dashboard");
@@ -124,7 +142,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 logout,
                 logoutAll,
                 can,
-                admin: user,
             }}
         >
             {children}
