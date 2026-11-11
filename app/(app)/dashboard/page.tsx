@@ -28,8 +28,10 @@ import {
     Legend,
 } from "recharts";
 
+import Link from "next/link";
 import { api } from "@/lib/api";
-import { AppLayout } from "@/components/layout/app-layout";
+import { useAuth } from "@/components/providers/auth-provider";
+import { qk } from "@/lib/query-keys";
 import { Button } from "@/components/ui/button";
 import {
     Card,
@@ -60,6 +62,8 @@ const CHART_COLORS = [
 ];
 
 export default function DashboardPage() {
+    const { user, role } = useAuth();
+    const isDoctor = role === "doctor";
     const [timeRange, setTimeRange] = useState("30d");
 
     const {
@@ -68,18 +72,66 @@ export default function DashboardPage() {
         isRefetching,
         refetch,
     } = useQuery({
-        queryKey: ["dashboardStats", timeRange],
+        queryKey: qk.dashboard.stats(timeRange),
         queryFn: () =>
             api.get<ApiResponse<DashboardStats>>(
                 `/dashboard/stats?range=${timeRange}`
             ),
+        enabled: !isDoctor,
     });
 
     const stats = response?.data;
 
-    return (
-        <AppLayout>
+    if (isDoctor) {
+        return (
             <div className="space-y-6">
+                <div>
+                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+                        Doctor Portal
+                    </h1>
+                    <p className="text-sm text-muted-foreground mt-1">
+                        Welcome back, Dr. {user?.name || "Doctor"}
+                    </p>
+                </div>
+
+                <Card className="border-primary/20 bg-primary/5">
+                    <CardHeader>
+                        <CardTitle className="text-lg flex items-center gap-2">
+                            <Stethoscope className="h-5 w-5 text-primary" />
+                            Doctor Workspace
+                        </CardTitle>
+                        <CardDescription>
+                            Your upcoming schedule and appointments calendar will be available here in Phase F3.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <p className="text-sm text-muted-foreground">
+                            You can currently review your assigned patients or view your doctor profile.
+                        </p>
+                        <div className="flex flex-wrap gap-3">
+                            <Button asChild size="sm">
+                                <Link href="/patients">
+                                    <Users className="h-4 w-4 mr-1.5" />
+                                    View My Patients
+                                </Link>
+                            </Button>
+                            {user?.doctorId && (
+                                <Button asChild variant="outline" size="sm">
+                                    <Link href={`/doctors/${user.doctorId}`}>
+                                        <Stethoscope className="h-4 w-4 mr-1.5" />
+                                        My Doctor Profile
+                                    </Link>
+                                </Button>
+                            )}
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-6">
                 {/* Header section with Range Selector */}
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
@@ -507,7 +559,6 @@ export default function DashboardPage() {
                     </Card>
                 </div>
             </div>
-        </AppLayout>
     );
 }
 

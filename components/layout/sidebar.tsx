@@ -8,10 +8,20 @@ import {
     Stethoscope,
     Users,
     HeartPulse,
+    type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/components/providers/auth-provider";
+import type { AppAction } from "@/lib/permissions";
 
-const navigationItems = [
+interface NavItem {
+    name: string;
+    href: string;
+    icon: LucideIcon;
+    action?: AppAction;
+}
+
+const navigationItems: NavItem[] = [
     {
         name: "Dashboard",
         href: "/dashboard",
@@ -21,13 +31,22 @@ const navigationItems = [
         name: "Doctors",
         href: "/doctors",
         icon: Stethoscope,
+        action: "doctors.read",
     },
     {
         name: "Patients",
         href: "/patients",
         icon: Users,
+        action: "patients.read",
     },
 ];
+
+const roleTitles: Record<string, string> = {
+    admin: "Admin Portal",
+    staff: "Staff Portal",
+    doctor: "Doctor Portal",
+    viewer: "Viewer Portal",
+};
 
 interface SidebarProps {
     className?: string;
@@ -36,6 +55,13 @@ interface SidebarProps {
 
 export function Sidebar({ className, onItemClick }: SidebarProps) {
     const pathname = usePathname();
+    const { role, can } = useAuth();
+
+    const visibleItems = navigationItems.filter(
+        (item) => !item.action || can(item.action)
+    );
+
+    const portalTitle = role ? roleTitles[role] ?? "Portal" : "Portal";
 
     return (
         <aside
@@ -53,7 +79,7 @@ export function Sidebar({ className, onItemClick }: SidebarProps) {
                     <h1 className="text-base font-bold tracking-tight">
                         Doctor Tracker
                     </h1>
-                    <p className="text-xs text-muted-foreground">Admin Portal</p>
+                    <p className="text-xs text-muted-foreground">{portalTitle}</p>
                 </div>
             </div>
 
@@ -62,7 +88,7 @@ export function Sidebar({ className, onItemClick }: SidebarProps) {
                 <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">
                     Navigation
                 </p>
-                {navigationItems.map((item) => {
+                {visibleItems.map((item) => {
                     const isActive =
                         pathname === item.href ||
                         (item.href !== "/dashboard" &&
@@ -103,4 +129,3 @@ export function Sidebar({ className, onItemClick }: SidebarProps) {
         </aside>
     );
 }
-

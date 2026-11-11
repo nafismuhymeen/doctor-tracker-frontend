@@ -145,7 +145,7 @@ export function DoctorPatientsDialog({
             reset();
             setShowAddForm(false);
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
             const message =
                 error instanceof ApiError
                     ? error.message
@@ -167,7 +167,7 @@ export function DoctorPatientsDialog({
             queryClient.invalidateQueries({ queryKey: ["dashboardStats"] });
             setPatientToDelete(null);
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
             const message =
                 error instanceof ApiError
                     ? error.message
@@ -187,7 +187,7 @@ export function DoctorPatientsDialog({
                         <div>
                             <DialogTitle className="text-xl flex items-center gap-2">
                                 <Users className="h-5 w-5 text-primary" />
-                                {doctor.name}'s Patients
+                                {doctor.name}&apos;s Patients
                             </DialogTitle>
                             <DialogDescription className="mt-1">
                                 {doctor.specialization} • {doctor.hospital}
@@ -348,7 +348,7 @@ export function DoctorPatientsDialog({
                             <Users className="mx-auto h-8 w-8 text-muted-foreground/60" />
                             <p className="mt-2 text-sm font-medium">No patients found</p>
                             <p className="text-xs text-muted-foreground mt-0.5">
-                                Click "Add Patient" above to assign a patient to {doctor.name}.
+                                Click &quot;Add Patient&quot; above to assign a patient to {doctor.name}.
                             </p>
                         </div>
                     ) : (

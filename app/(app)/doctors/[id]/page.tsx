@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -24,7 +24,8 @@ import { toast } from "sonner";
 
 import { api, ApiError } from "@/lib/api";
 import { useDebounce } from "@/lib/hooks/use-debounce";
-import { AppLayout } from "@/components/layout/app-layout";
+import { useAuth } from "@/components/providers/auth-provider";
+import { qk } from "@/lib/query-keys";
 import { AddPatientDialog } from "@/components/doctors/add-patient-dialog";
 import {
     AlertDialog,
@@ -55,6 +56,7 @@ export default function DoctorDetailPage() {
     const params = useParams();
     const router = useRouter();
     const queryClient = useQueryClient();
+    const { user, can } = useAuth();
     const doctorId = params?.id as string;
 
     const [page, setPage] = useState(1);
@@ -63,13 +65,15 @@ export default function DoctorDetailPage() {
     const [addPatientOpen, setAddPatientOpen] = useState(false);
     const [patientToRemove, setPatientToRemove] = useState<Patient | null>(null);
 
+    // Permission checks
+    const canAddPatient = can("patients.create", {
+        targetDoctorId: doctorId,
+        doctorId: user?.doctorId,
+    });
+    const canDeletePatient = can("patients.delete");
+
     // Debounce search input to avoid repeated API requests while typing
     const debouncedSearch = useDebounce(search, 400);
-
-    // Reset pagination to page 1 when search changes
-    useEffect(() => {
-        setPage(1);
-    }, [debouncedSearch]);
 
     // Fetch Doctor Details
     const {
@@ -77,7 +81,7 @@ export default function DoctorDetailPage() {
         isLoading: isDoctorLoading,
         error: doctorError,
     } = useQuery({
-        queryKey: ["doctor", doctorId],
+        queryKey: qk.doctors.detail(doctorId),
         queryFn: () =>
             api.get<ApiResponse<{ doctor: Doctor }>>(`/doctors/${doctorId}`),
         enabled: !!doctorId,
@@ -98,7 +102,7 @@ export default function DoctorDetailPage() {
         data: patientsData,
         isLoading: isPatientsLoading,
     } = useQuery({
-        queryKey: ["doctorPatients", doctorId, queryParams],
+        queryKey: qk.doctors.patients(doctorId, queryParams),
         queryFn: () =>
             api.get<ApiResponse<PatientsResponse>>(
                 `/doctors/${doctorId}/patients?${queryParams}`
@@ -116,10 +120,10 @@ export default function DoctorDetailPage() {
         onSuccess: () => {
             toast.success("Patient removed successfully");
             queryClient.invalidateQueries({
-                queryKey: ["doctorPatients", doctorId],
+                queryKey: qk.doctors.patients(doctorId),
             });
-            queryClient.invalidateQueries({ queryKey: ["patients"] });
-            queryClient.invalidateQueries({ queryKey: ["dashboardStats"] });
+            queryClient.invalidateQueries({ queryKey: qk.patients.all() });
+            queryClient.invalidateQueries({ queryKey: qk.dashboard.stats() });
             setPatientToRemove(null);
         },
         onError: (error: unknown) => {
@@ -133,7 +137,7 @@ export default function DoctorDetailPage() {
     });
 
     return (
-        <AppLayout>
+        <>
             <div className="space-y-6 min-w-0 max-w-full">
                 {/* Back button and breadcrumb navigation */}
                 <div className="flex items-center gap-2">
@@ -317,14 +321,16 @@ export default function DoctorDetailPage() {
                                 />
                             </div>
 
-                            <Button
-                                onClick={() => setAddPatientOpen(true)}
-                                disabled={!doctor}
-                                className="gap-2 h-9 text-xs shadow-xs"
-                            >
-                                <UserPlus className="h-4 w-4" />
-                                Add Patient
-                            </Button>
+                            {canAddPatient && (
+                                <Button
+                                    onClick={() => setAddPatientOpen(true)}
+                                    disabled={!doctor}
+                                    className="gap-2 h-9 text-xs shadow-xs"
+                                >
+                                    <UserPlus className="h-4 w-4" />
+                                    Add Patient
+                                </Button>
+                            )}
                         </div>
                     </CardHeader>
 
@@ -345,18 +351,20 @@ export default function DoctorDetailPage() {
                                     {search
                                         ? "No patients match your search term. Try a different query."
                                         : doctor
-                                        ? `Dr. ${doctor.name} currently has no patients assigned. Click "Add Patient" above to assign one.`
+                                        ? `Dr. ${doctor.name} currently has no patients assigned.`
                                         : "No patients found for this doctor."}
                                 </p>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setAddPatientOpen(true)}
-                                    className="mt-4 gap-1.5 text-xs"
-                                >
-                                    <UserPlus className="h-3.5 w-3.5" />
-                                    Add Patient
-                                </Button>
+                                {canAddPatient && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setAddPatientOpen(true)}
+                                        className="mt-4 gap-1.5 text-xs"
+                                    >
+                                        <UserPlus className="h-3.5 w-3.5" />
+                                        Add Patient
+                                    </Button>
+                                )}
                             </div>
                         ) : (
                             <Table className="min-w-[750px]">
@@ -367,7 +375,9 @@ export default function DoctorDetailPage() {
                                         <TableHead>Demographics</TableHead>
                                         <TableHead>Contact</TableHead>
                                         <TableHead>Registered</TableHead>
-                                        <TableHead className="text-right">Actions</TableHead>
+                                        {canDeletePatient && (
+                                            <TableHead className="text-right">Actions</TableHead>
+                                        )}
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -411,26 +421,28 @@ export default function DoctorDetailPage() {
                                                     })}
                                                 </span>
                                             </TableCell>
-                                            <TableCell className="text-right">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                    disabled={
-                                                        deletePatientMutation.isPending &&
-                                                        patientToRemove?._id === patient._id
-                                                    }
-                                                    onClick={() => setPatientToRemove(patient)}
-                                                    title="Remove patient from doctor's list"
-                                                >
-                                                    {deletePatientMutation.isPending &&
-                                                    patientToRemove?._id === patient._id ? (
-                                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                                    ) : (
-                                                        <Trash2 className="h-4 w-4" />
-                                                    )}
-                                                </Button>
-                                            </TableCell>
+                                            {canDeletePatient && (
+                                                <TableCell className="text-right">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                        disabled={
+                                                            deletePatientMutation.isPending &&
+                                                            patientToRemove?._id === patient._id
+                                                        }
+                                                        onClick={() => setPatientToRemove(patient)}
+                                                        title="Remove patient from doctor's list"
+                                                    >
+                                                        {deletePatientMutation.isPending &&
+                                                        patientToRemove?._id === patient._id ? (
+                                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                                        ) : (
+                                                            <Trash2 className="h-4 w-4" />
+                                                        )}
+                                                    </Button>
+                                                </TableCell>
+                                            )}
                                         </TableRow>
                                     ))}
                                 </TableBody>
@@ -530,7 +542,7 @@ export default function DoctorDetailPage() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-        </AppLayout>
+        </>
     );
 }
 

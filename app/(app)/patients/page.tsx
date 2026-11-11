@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     useReactTable,
@@ -24,7 +24,8 @@ import { toast } from "sonner";
 
 import { api, ApiError } from "@/lib/api";
 import { useDebounce } from "@/lib/hooks/use-debounce";
-import { AppLayout } from "@/components/layout/app-layout";
+import { useAuth } from "@/components/providers/auth-provider";
+import { qk } from "@/lib/query-keys";
 import { EditPatientDialog } from "@/components/patients/edit-patient-dialog";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
@@ -60,6 +61,9 @@ const columnHelper = createColumnHelper<Patient>();
 
 export default function PatientsPage() {
     const queryClient = useQueryClient();
+    const { can } = useAuth();
+    const canUpdate = can("patients.update");
+    const canDelete = can("patients.delete");
 
     // Filters & Pagination states
     const [page, setPage] = useState(1);
@@ -72,11 +76,6 @@ export default function PatientsPage() {
     // Debounce text inputs to avoid repeated API requests while typing
     const debouncedSearch = useDebounce(search, 400);
     const debouncedCondition = useDebounce(condition, 400);
-
-    // Reset pagination to page 1 when any filter changes
-    useEffect(() => {
-        setPage(1);
-    }, [debouncedSearch, debouncedCondition, startDate, endDate]);
 
     // Edit dialog state
     const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
@@ -99,7 +98,7 @@ export default function PatientsPage() {
 
     // Query patients list
     const { data: response, isLoading } = useQuery({
-        queryKey: ["patients", queryParams],
+        queryKey: qk.patients.list(queryParams),
         queryFn: () =>
             api.get<ApiResponse<PatientsResponse>>(`/patients?${queryParams}`),
     });
@@ -112,10 +111,10 @@ export default function PatientsPage() {
         mutationFn: (patientId: string) => api.delete(`/patients/${patientId}`),
         onSuccess: () => {
             toast.success("Patient deleted successfully");
-            queryClient.invalidateQueries({ queryKey: ["patients"] });
-            queryClient.invalidateQueries({ queryKey: ["dashboardStats"] });
+            queryClient.invalidateQueries({ queryKey: qk.patients.all() });
+            queryClient.invalidateQueries({ queryKey: qk.dashboard.stats() });
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
             const message =
                 error instanceof ApiError
                     ? error.message
@@ -214,41 +213,52 @@ export default function PatientsPage() {
                     </span>
                 ),
             }),
-            columnHelper.display({
-                id: "actions",
-                header: "Actions",
-                cell: ({ row }) => (
-                    <div className="flex items-center gap-1">
-                        {/* Edit Patient */}
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 hover:bg-muted"
-                            onClick={() => {
-                                setEditingPatient(row.original);
-                                setEditDialogOpen(true);
-                            }}
-                            title="Edit patient details"
-                        >
-                            <Edit2 className="h-4 w-4 text-muted-foreground" />
-                        </Button>
+            ...(canUpdate || canDelete
+                ? [
+                      columnHelper.display({
+                          id: "actions",
+                          header: "Actions",
+                          cell: ({ row }) => (
+                              <div className="flex items-center gap-1">
+                                  {/* Edit Patient */}
+                                  {canUpdate && (
+                                      <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-8 w-8 hover:bg-muted"
+                                          onClick={() => {
+                                              setEditingPatient(row.original);
+                                              setEditDialogOpen(true);
+                                          }}
+                                          title="Edit patient details"
+                                      >
+                                          <Edit2 className="h-4 w-4 text-muted-foreground" />
+                                      </Button>
+                                  )}
 
-                        {/* Delete Patient */}
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                            onClick={() => setDeletingPatient(row.original)}
-                            disabled={deleteMutation.isPending && deletingPatient?._id === row.original._id}
-                            title="Delete patient"
-                        >
-                            <Trash2 className="h-4 w-4" />
-                        </Button>
-                    </div>
-                ),
-            }),
+                                  {/* Delete Patient */}
+                                  {canDelete && (
+                                      <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                          onClick={() => setDeletingPatient(row.original)}
+                                          disabled={
+                                              deleteMutation.isPending &&
+                                              deletingPatient?._id === row.original._id
+                                          }
+                                          title="Delete patient"
+                                      >
+                                          <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                  )}
+                              </div>
+                          ),
+                      }),
+                  ]
+                : []),
         ],
-        [deleteMutation, deletingPatient]
+        [deleteMutation, deletingPatient, canUpdate, canDelete]
     );
 
     const table = useReactTable({
@@ -260,7 +270,7 @@ export default function PatientsPage() {
     });
 
     return (
-        <AppLayout>
+        <>
             <div className="space-y-6 min-w-0 max-w-full">
                 {/* Header */}
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -504,7 +514,7 @@ export default function PatientsPage() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-        </AppLayout>
+        </>
     );
 }
 

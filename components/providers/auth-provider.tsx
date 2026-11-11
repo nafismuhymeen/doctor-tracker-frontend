@@ -1,84 +1,135 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
-import { api } from "@/lib/api";
-import type { Admin, ApiResponse } from "@/types";
+import React, { createContext, useContext, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { api, setSessionExpiredHandler } from "@/lib/api";
+import { qk } from "@/lib/query-keys";
+import { can as canPermission, type Action, type PermissionContext } from "@/lib/permissions";
+import type { User, Role, ApiResponse } from "@/types";
 
 interface AuthContextType {
-    admin: Admin | null;
+    user: User | null;
+    role: Role | null;
     isLoading: boolean;
-    login: (admin: Admin) => void;
+    isAuthenticated: boolean;
+    login: (user: User, redirectTo?: string) => void;
     logout: () => Promise<void>;
+    logoutAll: () => Promise<void>;
+    can: (action: Action, ctx?: PermissionContext) => boolean;
+    // Legacy compatibility alias
+    admin: User | null;
 }
 
 const AuthContext = createContext<AuthContextType>({
-    admin: null,
+    user: null,
+    role: null,
     isLoading: true,
+    isAuthenticated: false,
     login: () => {},
     logout: async () => {},
+    logoutAll: async () => {},
+    can: () => false,
+    admin: null,
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-    const [admin, setAdmin] = useState<Admin | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+    const queryClient = useQueryClient();
     const router = useRouter();
-    const pathname = usePathname();
 
-    useEffect(() => {
-        let isMounted = true;
+    const { data: response, isLoading } = useQuery({
+        queryKey: qk.auth.me(),
+        queryFn: () => api.get<ApiResponse<{ user: User }>>("/auth/me"),
+        retry: false,
+        refetchOnWindowFocus: false,
+        staleTime: Infinity,
+    });
 
-        async function verifyAuth() {
-            try {
-                const response = await api.get<ApiResponse<{ admin: Admin }>>(
-                    "/auth/me"
-                );
-                if (isMounted && response.data?.admin) {
-                    setAdmin(response.data.admin);
-                }
-            } catch {
-                if (isMounted) {
-                    setAdmin(null);
-                    if (pathname !== "/login") {
-                        router.push("/login");
-                    }
-                }
-            } finally {
-                if (isMounted) {
-                    setIsLoading(false);
-                }
-            }
-        }
+    const user = response?.data?.user ?? null;
+    const role = user?.role ?? null;
+    const isAuthenticated = !!user;
 
-        verifyAuth();
-
-        return () => {
-            isMounted = false;
-        };
-    }, [pathname, router]);
-
-    const login = (newAdmin: Admin) => {
-        setAdmin(newAdmin);
-        router.push("/dashboard");
-    };
-
-    const logout = async () => {
+    const logout = useCallback(async () => {
         try {
             await api.post("/auth/logout");
         } catch {
-            // ignore logout error
+            // Ignore failure on logout call
         } finally {
-            setAdmin(null);
+            queryClient.clear();
             router.push("/login");
         }
-    };
+    }, [queryClient, router]);
+
+    const logoutAll = useCallback(async () => {
+        try {
+            await api.post("/auth/logout-all");
+        } catch {
+            // Ignore failure on logoutAll call
+        } finally {
+            queryClient.clear();
+            router.push("/login");
+        }
+    }, [queryClient, router]);
+
+    // Handle mid-use session revocation/termination
+    useEffect(() => {
+        setSessionExpiredHandler((message: string) => {
+            toast.error(message);
+            queryClient.clear();
+            router.push("/login");
+        });
+
+        return () => {
+            setSessionExpiredHandler(null);
+        };
+    }, [queryClient, router]);
+
+    const login = useCallback(
+        (newUser: User, redirectTo?: string) => {
+            queryClient.setQueryData(qk.auth.me(), {
+                success: true,
+                message: "Current user retrieved successfully",
+                data: { user: newUser },
+            });
+
+            // Target destination by role or explicit redirectTo
+            if (redirectTo && redirectTo.startsWith("/") && !redirectTo.startsWith("//")) {
+                router.push(redirectTo);
+            } else {
+                router.push("/dashboard");
+            }
+        },
+        [queryClient, router]
+    );
+
+    const can = useCallback(
+        (action: Action, ctx?: PermissionContext) => {
+            return canPermission(role, action, {
+                ...ctx,
+                doctorId: user?.doctorId,
+            });
+        },
+        [role, user?.doctorId]
+    );
 
     return (
-        <AuthContext.Provider value={{ admin, isLoading, login, logout }}>
+        <AuthContext.Provider
+            value={{
+                user,
+                role,
+                isLoading,
+                isAuthenticated,
+                login,
+                logout,
+                logoutAll,
+                can,
+                admin: user,
+            }}
+        >
             {children}
         </AuthContext.Provider>
     );
 }
 
 export const useAuth = () => useContext(AuthContext);
-

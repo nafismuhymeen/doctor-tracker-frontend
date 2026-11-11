@@ -1,10 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { Menu, LogOut, UserCircle } from "lucide-react";
+import {
+    Menu,
+    LogOut,
+    KeyRound,
+    ShieldAlert,
+} from "lucide-react";
 import { useAuth } from "@/components/providers/auth-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -15,10 +21,39 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Sidebar } from "./sidebar";
+import { ChangePasswordDialog } from "@/components/auth/change-password-dialog";
+import type { Role } from "@/types";
+
+const roleBadgeVariant: Record<
+    Role,
+    { label: string; className: string }
+> = {
+    admin: {
+        label: "Admin",
+        className: "bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800",
+    },
+    staff: {
+        label: "Staff",
+        className: "bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800",
+    },
+    doctor: {
+        label: "Doctor",
+        className: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800",
+    },
+    viewer: {
+        label: "Viewer",
+        className: "bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800",
+    },
+};
 
 export function Header() {
-    const { admin, logout } = useAuth();
+    const { user, role, logout, logoutAll } = useAuth();
     const [mobileOpen, setMobileOpen] = useState(false);
+    const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+
+    const roleInfo = role
+        ? roleBadgeVariant[role]
+        : { label: "User", className: "bg-muted text-muted-foreground" };
 
     return (
         <header className="sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b bg-background/80 px-4 sm:px-6 backdrop-blur-md">
@@ -43,7 +78,7 @@ export function Header() {
             <div className="flex items-center gap-2 sm:gap-4">
                 <ThemeToggle />
 
-                {admin && (
+                {user && (
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button
@@ -51,20 +86,42 @@ export function Header() {
                                 className="flex items-center gap-2.5 rounded-full pl-2 pr-3 h-9"
                             >
                                 <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-xs uppercase">
-                                    {admin.name ? admin.name.charAt(0) : "A"}
+                                    {user.name ? user.name.charAt(0) : "U"}
                                 </div>
                                 <span className="text-sm font-medium hidden sm:inline-block max-w-[120px] truncate">
-                                    {admin.name}
+                                    {user.name}
                                 </span>
+                                <Badge
+                                    variant="outline"
+                                    className={`hidden sm:inline-flex text-[10px] px-1.5 py-0 font-semibold uppercase ${roleInfo.className}`}
+                                >
+                                    {roleInfo.label}
+                                </Badge>
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-56">
+                        <DropdownMenuContent align="end" className="w-60">
                             <DropdownMenuLabel>
-                                <p className="font-medium">{admin.name}</p>
-                                <p className="text-xs text-muted-foreground truncate">
-                                    {admin.email}
+                                <div className="flex items-center justify-between gap-2">
+                                    <p className="font-medium truncate">{user.name}</p>
+                                    <Badge
+                                        variant="outline"
+                                        className={`text-[10px] px-1.5 py-0 font-semibold uppercase ${roleInfo.className}`}
+                                    >
+                                        {roleInfo.label}
+                                    </Badge>
+                                </div>
+                                <p className="text-xs text-muted-foreground truncate font-normal">
+                                    {user.email}
                                 </p>
                             </DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                                onClick={() => setChangePasswordOpen(true)}
+                                className="cursor-pointer"
+                            >
+                                <KeyRound className="mr-2 h-4 w-4" />
+                                <span>Change password</span>
+                            </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                                 onClick={() => logout()}
@@ -72,6 +129,13 @@ export function Header() {
                             >
                                 <LogOut className="mr-2 h-4 w-4" />
                                 <span>Sign out</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                onClick={() => logoutAll()}
+                                className="text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer text-xs"
+                            >
+                                <ShieldAlert className="mr-2 h-4 w-4" />
+                                <span>Sign out of all devices</span>
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
@@ -85,7 +149,12 @@ export function Header() {
                     <Sidebar onItemClick={() => setMobileOpen(false)} />
                 </DialogContent>
             </Dialog>
+
+            {/* Change Password Dialog */}
+            <ChangePasswordDialog
+                open={changePasswordOpen}
+                onOpenChange={setChangePasswordOpen}
+            />
         </header>
     );
 }
-

@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { HeartPulse, Lock, Mail, Loader2, ArrowRight } from "lucide-react";
+import { HeartPulse, Lock, Mail, Loader2, ArrowRight, Sparkles } from "lucide-react";
 
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/components/providers/auth-provider";
@@ -21,24 +22,52 @@ import {
     CardTitle,
 } from "@/components/ui/card";
 import { ThemeToggle } from "@/components/theme-toggle";
-import type { Admin, ApiResponse } from "@/types";
+import type { ApiResponse, AppUser } from "@/types";
 
-const loginSchema = z.object({
+export const loginSchema = z.object({
     email: z
-        .email("Please provide a valid email address")
-        .min(1, "Email is required"),
+        .string()
+        .min(1, "Email is required")
+        .email("Please provide a valid email address"),
     password: z.string().min(1, "Password is required"),
 });
 
-type LoginFormData = z.infer<typeof loginSchema>;
+export type LoginFormData = z.infer<typeof loginSchema>;
+
+export function getLoginErrorMessage(error: unknown): string {
+    if (error instanceof ApiError) {
+        if (error.code === "ACCOUNT_DISABLED") {
+            return "This account has been disabled. Contact an administrator.";
+        }
+        if (error.code === "INVALID_CREDENTIALS" || error.status === 401) {
+            return "Invalid email or password.";
+        }
+        if (error.status === 429) {
+            return "Too many sign-in attempts. Please wait a moment and try again.";
+        }
+        if (error.status === 0) {
+            return "Cannot reach the server. Please check your connection.";
+        }
+        return error.message || "Unable to sign in. Please verify your credentials.";
+    }
+    return "Unable to sign in. Please verify your credentials.";
+}
 
 export default function LoginPage() {
-    const { login } = useAuth();
+    const router = useRouter();
+    const { login, isAuthenticated, isLoading } = useAuth();
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    useEffect(() => {
+        if (!isLoading && isAuthenticated) {
+            router.replace("/dashboard");
+        }
+    }, [isLoading, isAuthenticated, router]);
 
     const {
         register,
         handleSubmit,
+        setValue,
         formState: { errors },
     } = useForm<LoginFormData>({
         resolver: zodResolver(loginSchema),
@@ -48,25 +77,32 @@ export default function LoginPage() {
         },
     });
 
+    const demoEmail = process.env.NEXT_PUBLIC_DEMO_EMAIL;
+    const demoPassword = process.env.NEXT_PUBLIC_DEMO_PASSWORD;
+    const hasDemo = Boolean(demoEmail && demoPassword);
+
+    const handleFillDemo = () => {
+        if (demoEmail && demoPassword) {
+            setValue("email", demoEmail, { shouldValidate: true });
+            setValue("password", demoPassword, { shouldValidate: true });
+        }
+    };
+
     const onSubmit = async (data: LoginFormData) => {
         try {
             setIsSubmitting(true);
-            const response = await api.post<ApiResponse<{ admin: Admin }>>(
-                "/auth/login",
-                data
-            );
+            const response = await api.post<
+                ApiResponse<{ user: AppUser; accessToken?: string }>
+            >("/auth/login", data);
 
-            if (response.data?.admin) {
+            if (response.data?.user) {
                 toast.success("Welcome back!", {
-                    description: `Signed in as ${response.data.admin.name}`,
+                    description: `Signed in as ${response.data.user.name}`,
                 });
-                login(response.data.admin);
+                login(response.data.user);
             }
-        } catch (error: any) {
-            const message =
-                error instanceof ApiError
-                    ? error.message
-                    : "Unable to sign in. Please verify your credentials.";
+        } catch (error: unknown) {
+            const message = getLoginErrorMessage(error);
             toast.error("Authentication Failed", { description: message });
         } finally {
             setIsSubmitting(false);
@@ -93,7 +129,7 @@ export default function LoginPage() {
                         Doctor Tracker
                     </h1>
                     <p className="text-sm text-muted-foreground">
-                        Administrative portal to manage healthcare personnel & patients
+                        Clinical portal to manage healthcare personnel & patients
                     </p>
                 </div>
 
@@ -101,7 +137,7 @@ export default function LoginPage() {
                     <CardHeader className="space-y-1 pb-4">
                         <CardTitle className="text-xl">Sign In</CardTitle>
                         <CardDescription>
-                            Enter your administrator credentials to access the portal
+                            Enter your credentials to access the portal
                         </CardDescription>
                     </CardHeader>
                     <form onSubmit={handleSubmit(onSubmit)}>
@@ -113,7 +149,7 @@ export default function LoginPage() {
                                     <Input
                                         id="email"
                                         type="email"
-                                        placeholder="admin@example.com"
+                                        placeholder="user@example.com"
                                         className="pl-9"
                                         autoComplete="email"
                                         disabled={isSubmitting}
@@ -147,6 +183,22 @@ export default function LoginPage() {
                                     </p>
                                 )}
                             </div>
+
+                            {hasDemo && (
+                                <div className="pt-1">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleFillDemo}
+                                        disabled={isSubmitting}
+                                        className="w-full text-xs text-muted-foreground hover:text-foreground border-dashed"
+                                    >
+                                        <Sparkles className="mr-1.5 h-3.5 w-3.5 text-primary" />
+                                        Fill demo credentials
+                                    </Button>
+                                </div>
+                            )}
                         </CardContent>
 
                         <CardFooter className="flex flex-col space-y-4 pt-2">
@@ -170,17 +222,7 @@ export default function LoginPage() {
                         </CardFooter>
                     </form>
                 </Card>
-
-                <div className="rounded-lg border bg-card/60 p-3 text-center text-xs text-muted-foreground backdrop-blur-sm">
-                    <p className="font-medium text-foreground">
-                        Default Seeded Admin Credentials:
-                    </p>
-                    <p className="mt-1">
-                        Run <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">yarn seed:admin</code> in the backend, then sign in with your configured admin email & password.
-                    </p>
-                </div>
             </div>
         </div>
     );
 }
-
