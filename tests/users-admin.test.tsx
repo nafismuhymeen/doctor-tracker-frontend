@@ -1,10 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import UsersPage from "@/app/(app)/users/page";
+import { CreateUserDialog } from "@/components/users/create-user-dialog";
+import { EditUserDialog } from "@/components/users/edit-user-dialog";
 import * as AuthProviderModule from "@/components/providers/auth-provider";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
+import { toast } from "sonner";
 import type { AppUser, Role, User } from "@/types";
 
 vi.mock("next/navigation", () => ({
@@ -13,6 +16,13 @@ vi.mock("next/navigation", () => ({
         replace: vi.fn(),
     }),
     usePathname: () => "/users",
+}));
+
+vi.mock("sonner", () => ({
+    toast: {
+        error: vi.fn(),
+        success: vi.fn(),
+    },
 }));
 
 vi.mock("@/lib/api", () => ({
@@ -138,5 +148,143 @@ describe("Users Admin Page Access & Self-Protection", () => {
         expect(await screen.findByText("Staff Bob")).toBeInTheDocument();
         // Self indicator
         expect(screen.getByText("You")).toBeInTheDocument();
+    });
+});
+
+describe("CreateUserDialog Error Code Mapping", () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.mocked(api.get).mockResolvedValue({ success: true, data: { doctors: [] } });
+    });
+
+    it("maps EMAIL_IN_USE code specifically, and does not swallow DOCTOR_ALREADY_ASSIGNED", async () => {
+        vi.mocked(api.post).mockRejectedValueOnce(
+            new ApiError("Email in use error", 409, "EMAIL_IN_USE")
+        );
+
+        renderWithClient(<CreateUserDialog />);
+
+        // Open dialog
+        fireEvent.click(screen.getByRole("button", { name: /^Create User$/i }));
+
+        // Fill form
+        fireEvent.change(screen.getByLabelText(/Full Name/i), {
+            target: { value: "John Doe" },
+        });
+        fireEvent.change(screen.getByLabelText(/Email Address/i), {
+            target: { value: "john@hospital.org" },
+        });
+        fireEvent.change(screen.getByLabelText(/Initial Password/i), {
+            target: { value: "ValidPassword123" },
+        });
+
+        // Submit form
+        const submitBtn = document.querySelector('button[type="submit"]') as HTMLButtonElement;
+        expect(submitBtn).toBeInTheDocument();
+        fireEvent.click(submitBtn);
+
+        await waitFor(() => {
+            expect(toast.error).toHaveBeenCalledWith("Registration Failed", {
+                description: "This email address is already in use by another account.",
+            });
+        });
+
+        // Now test DOCTOR_ALREADY_ASSIGNED
+        vi.mocked(api.post).mockRejectedValueOnce(
+            new ApiError("Doctor already assigned", 409, "DOCTOR_ALREADY_ASSIGNED")
+        );
+
+        fireEvent.click(submitBtn);
+
+        await waitFor(() => {
+            expect(toast.error).toHaveBeenCalledWith("Registration Failed", {
+                description: "This doctor record is already linked to another user account.",
+            });
+        });
+    });
+});
+
+describe("EditUserDialog Error Code Mapping", () => {
+    const targetStaffUser: AppUser = {
+        id: "target-user-2",
+        name: "Staff Dave",
+        email: "dave@hospital.org",
+        role: "staff",
+        isActive: true,
+        tokenVersion: 1,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+    };
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        mockAuthWithRole("admin", "admin-1");
+        vi.mocked(api.get).mockResolvedValue({ success: true, data: { doctors: [] } });
+    });
+
+    it("maps LAST_ADMIN code specifically", async () => {
+        vi.mocked(api.patch).mockRejectedValueOnce(
+            new ApiError("Last admin cannot be demoted", 409, "LAST_ADMIN")
+        );
+
+        renderWithClient(
+            <EditUserDialog
+                user={targetStaffUser}
+                open={true}
+                onOpenChange={vi.fn()}
+            />
+        );
+
+        fireEvent.click(screen.getByRole("button", { name: /Save Changes/i }));
+
+        await waitFor(() => {
+            expect(toast.error).toHaveBeenCalledWith("Update Blocked", {
+                description: "At least one active administrator is required.",
+            });
+        });
+    });
+
+    it("maps DOCTOR_ALREADY_ASSIGNED code specifically", async () => {
+        vi.mocked(api.patch).mockRejectedValueOnce(
+            new ApiError("Doctor assigned", 409, "DOCTOR_ALREADY_ASSIGNED")
+        );
+
+        renderWithClient(
+            <EditUserDialog
+                user={targetStaffUser}
+                open={true}
+                onOpenChange={vi.fn()}
+            />
+        );
+
+        fireEvent.click(screen.getByRole("button", { name: /Save Changes/i }));
+
+        await waitFor(() => {
+            expect(toast.error).toHaveBeenCalledWith("Update Blocked", {
+                description: "This doctor record is already linked to another user account.",
+            });
+        });
+    });
+
+    it("maps CANNOT_DEMOTE_SELF and CANNOT_DEACTIVATE_SELF code specifically", async () => {
+        vi.mocked(api.patch).mockRejectedValueOnce(
+            new ApiError("Cannot demote yourself", 400, "CANNOT_DEMOTE_SELF")
+        );
+
+        renderWithClient(
+            <EditUserDialog
+                user={targetStaffUser}
+                open={true}
+                onOpenChange={vi.fn()}
+            />
+        );
+
+        fireEvent.click(screen.getByRole("button", { name: /Save Changes/i }));
+
+        await waitFor(() => {
+            expect(toast.error).toHaveBeenCalledWith("Action Prohibited", {
+                description: "You cannot change the role or deactivate your own account.",
+            });
+        });
     });
 });

@@ -128,7 +128,7 @@ export function CreateUserDialog() {
         },
         onError: (err: unknown) => {
             if (err instanceof ApiError) {
-                if (err.code === "EMAIL_IN_USE" || err.status === 409) {
+                if (err.code === "EMAIL_IN_USE") {
                     toast.error("Registration Failed", {
                         description: "This email address is already in use by another account.",
                     });

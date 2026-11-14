@@ -51,7 +51,12 @@ export function DeleteDoctorDialog({
     } | null>(null);
 
     // Fetch doctor's assigned patients count if not supplied
-    const { data: patientsData, isLoading: isLoadingPatients } = useQuery({
+    const {
+        data: patientsData,
+        isLoading: isLoadingPatients,
+        isError: isPatientsError,
+        refetch: refetchPatients,
+    } = useQuery({
         queryKey: qk.doctors.patients(doctor?._id || "", "limit=1"),
         queryFn: () =>
             api.get<ApiResponse<{ pagination?: { totalPatients?: number } }>>(
@@ -59,6 +64,10 @@ export function DeleteDoctorDialog({
             ),
         enabled: open && !!doctor && initialPatientCount === undefined,
     });
+
+    const isPatientCountKnown =
+        initialPatientCount !== undefined ||
+        (!isLoadingPatients && !isPatientsError && patientsData !== undefined);
 
     const patientCount =
         initialPatientCount ??
@@ -101,7 +110,7 @@ export function DeleteDoctorDialog({
         },
         onError: (err: unknown) => {
             if (err instanceof ApiError) {
-                if (err.code === "DOCTOR_HAS_APPOINTMENTS" || err.status === 409) {
+                if (err.code === "DOCTOR_HAS_APPOINTMENTS") {
                     setAppointmentConflict({
                         hasConflict: true,
                         message: err.message,
@@ -174,8 +183,28 @@ export function DeleteDoctorDialog({
                     </div>
                 ) : (
                     <div className="space-y-4 py-2">
-                        {/* Patient Reassignment Requirement */}
-                        {patientCount > 0 ? (
+                        {isLoadingPatients && initialPatientCount === undefined ? (
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
+                                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                                Checking assigned patient roster...
+                            </div>
+                        ) : isPatientsError ? (
+                            <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3.5 text-xs text-destructive flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <div>
+                                    <span className="font-semibold block">Failed to load patient roster</span>
+                                    <span>Could not verify assigned patient count for this doctor.</span>
+                                </div>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => refetchPatients()}
+                                    className="h-7 text-xs border-destructive/30 text-destructive hover:bg-destructive/20 self-start sm:self-center"
+                                >
+                                    Retry
+                                </Button>
+                            </div>
+                        ) : patientCount > 0 ? (
                             <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50/80 p-3.5 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-200">
                                 <div className="flex items-center gap-2 font-semibold text-sm">
                                     <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
@@ -221,11 +250,6 @@ export function DeleteDoctorDialog({
                                     </Select>
                                 </div>
                             </div>
-                        ) : isLoadingPatients ? (
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
-                                <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                                Checking assigned patient roster...
-                            </div>
                         ) : (
                             <p className="text-xs text-muted-foreground">
                                 Dr. {doctor.name} has no assigned patients. Deletion will take effect immediately.
@@ -247,6 +271,8 @@ export function DeleteDoctorDialog({
                             onClick={() => deleteMutation.mutate()}
                             disabled={
                                 deleteMutation.isPending ||
+                                !isPatientCountKnown ||
+                                isPatientsError ||
                                 (patientCount > 0 && !reassignDoctorId)
                             }
                         >

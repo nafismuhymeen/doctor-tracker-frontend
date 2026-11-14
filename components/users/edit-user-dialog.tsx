@@ -139,7 +139,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
         },
         onError: (err: unknown) => {
             if (err instanceof ApiError) {
-                if (err.code === "LAST_ADMIN" || err.status === 409) {
+                if (err.code === "LAST_ADMIN") {
                     toast.error("Update Blocked", {
                         description: "At least one active administrator is required.",
                     });

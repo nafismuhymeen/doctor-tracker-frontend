@@ -126,4 +126,83 @@ describe("DeleteDoctorDialog Reassignment & Conflict Flow", () => {
             screen.getByRole("link", { name: /View Doctor's Appointments/i })
         ).toBeInTheDocument();
     });
+
+    it("disables delete button while patient count is loading and never claims zero patients", () => {
+        // Return a promise that never resolves immediately to simulate loading
+        vi.mocked(api.get).mockReturnValue(new Promise(() => {}));
+
+        renderWithClient(
+            <DeleteDoctorDialog
+                doctor={mockDoctor}
+                open={true}
+                onOpenChange={vi.fn()}
+                // initialPatientCount omitted to trigger fetch
+            />
+        );
+
+        expect(
+            screen.getByText("Checking assigned patient roster...")
+        ).toBeInTheDocument();
+        expect(
+            screen.queryByText(/has no assigned patients/i)
+        ).not.toBeInTheDocument();
+
+        // Delete button should be disabled while loading
+        const deleteBtn = screen.getByRole("button", { name: /Delete Doctor/i });
+        expect(deleteBtn).toBeDisabled();
+    });
+
+    it("shows error state with retry when patient query fails and never claims zero patients", async () => {
+        vi.mocked(api.get).mockRejectedValue(
+            new ApiError("Failed to fetch patients", 500)
+        );
+
+        renderWithClient(
+            <DeleteDoctorDialog
+                doctor={mockDoctor}
+                open={true}
+                onOpenChange={vi.fn()}
+            />
+        );
+
+        await waitFor(() => {
+            expect(
+                screen.getByText("Failed to load patient roster")
+            ).toBeInTheDocument();
+        });
+
+        expect(
+            screen.queryByText(/has no assigned patients/i)
+        ).not.toBeInTheDocument();
+
+        const retryBtn = screen.getByRole("button", { name: /Retry/i });
+        expect(retryBtn).toBeInTheDocument();
+
+        const deleteBtn = screen.getByRole("button", { name: /Delete Doctor/i });
+        expect(deleteBtn).toBeDisabled();
+    });
+
+    it("does not show appointment conflict if error code is not DOCTOR_HAS_APPOINTMENTS", async () => {
+        vi.mocked(api.delete).mockRejectedValueOnce(
+            new ApiError("Generic Conflict", 409, "OTHER_CONFLICT")
+        );
+
+        renderWithClient(
+            <DeleteDoctorDialog
+                doctor={mockDoctor}
+                open={true}
+                onOpenChange={vi.fn()}
+                initialPatientCount={0}
+            />
+        );
+
+        const deleteBtn = screen.getByRole("button", { name: "Delete Doctor" });
+        fireEvent.click(deleteBtn);
+
+        await waitFor(() => {
+            expect(
+                screen.queryByText("Active Appointments Detected")
+            ).not.toBeInTheDocument();
+        });
+    });
 });

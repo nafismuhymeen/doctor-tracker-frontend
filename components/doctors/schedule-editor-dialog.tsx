@@ -1,14 +1,26 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { CalendarClock, Plus, Trash2, Clock, Globe, Loader2, Sparkles } from "lucide-react";
+import {
+    CalendarClock,
+    Plus,
+    Trash2,
+    Clock,
+    Globe,
+    Loader2,
+    Sparkles,
+    Search,
+    Check,
+    ChevronsUpDown,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { api, ApiError } from "@/lib/api";
 import { qk } from "@/lib/query-keys";
+import { cn } from "@/lib/utils";
 import {
     scheduleFormSchema,
     type ScheduleFormData,
@@ -27,6 +39,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
+import {
     Select,
     SelectContent,
     SelectItem,
@@ -34,6 +51,34 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import type { WorkingHours } from "@/types";
+
+function getAvailableTimezones(currentTimezone?: string): string[] {
+    const list: string[] = [];
+    if (typeof Intl !== "undefined" && typeof Intl.supportedValuesOf === "function") {
+        try {
+            list.push(...Intl.supportedValuesOf("timeZone"));
+        } catch {
+            list.push(...COMMON_TIMEZONES);
+        }
+    } else {
+        list.push(...COMMON_TIMEZONES);
+    }
+    if (currentTimezone && !list.includes(currentTimezone)) {
+        list.unshift(currentTimezone);
+    }
+    return Array.from(new Set(list));
+}
+
+function getSlotMinuteOptions(currentSlot?: number): number[] {
+    const multiplesOfFive: number[] = [];
+    for (let m = 10; m <= 120; m += 5) {
+        multiplesOfFive.push(m);
+    }
+    if (currentSlot && !multiplesOfFive.includes(currentSlot)) {
+        multiplesOfFive.push(currentSlot);
+    }
+    return Array.from(new Set(multiplesOfFive)).sort((a, b) => a - b);
+}
 
 interface ScheduleEditorDialogProps {
     doctorId: string;
@@ -45,12 +90,14 @@ interface ScheduleEditorDialogProps {
     onOpenChange: (open: boolean) => void;
 }
 
+const EMPTY_WORKING_HOURS: WorkingHours[] = [];
+
 export function ScheduleEditorDialog({
     doctorId,
     doctorName,
     initialTimezone = "Asia/Dhaka",
     initialSlotMinutes = 30,
-    initialWorkingHours = [],
+    initialWorkingHours = EMPTY_WORKING_HOURS,
     open,
     onOpenChange,
 }: ScheduleEditorDialogProps) {
@@ -73,10 +120,29 @@ export function ScheduleEditorDialog({
         },
     });
 
-    const { fields, append, remove } = useFieldArray({
+    const { fields, append, remove, replace } = useFieldArray({
         control,
         name: "workingHours",
     });
+
+    const [tzSearch, setTzSearch] = useState("");
+    const [tzOpen, setTzOpen] = useState(false);
+
+    const allTimezones = useMemo(
+        () => getAvailableTimezones(initialTimezone),
+        [initialTimezone]
+    );
+
+    const filteredTimezones = useMemo(() => {
+        if (!tzSearch.trim()) return allTimezones;
+        const q = tzSearch.toLowerCase();
+        return allTimezones.filter((tz) => tz.toLowerCase().includes(q));
+    }, [allTimezones, tzSearch]);
+
+    const slotOptions = useMemo(
+        () => getSlotMinuteOptions(initialSlotMinutes),
+        [initialSlotMinutes]
+    );
 
     const currentSlotMinutes = watch("slotMinutes");
     const currentTimezone = watch("timezone");
@@ -88,6 +154,7 @@ export function ScheduleEditorDialog({
                 slotMinutes: initialSlotMinutes || 30,
                 workingHours: initialWorkingHours || [],
             });
+            setTzSearch("");
         }
     }, [open, initialTimezone, initialSlotMinutes, initialWorkingHours, reset]);
 
@@ -118,16 +185,28 @@ export function ScheduleEditorDialog({
         },
     });
 
-    const handleApplyStandardHours = () => {
+    const handleApplySunThuHours = () => {
+        // Sunday (0) through Thursday (4) from 09:00 to 17:00
+        const sunThuHours: WorkingHours[] = [
+            { dayOfWeek: 0, start: "09:00", end: "17:00" },
+            { dayOfWeek: 1, start: "09:00", end: "17:00" },
+            { dayOfWeek: 2, start: "09:00", end: "17:00" },
+            { dayOfWeek: 3, start: "09:00", end: "17:00" },
+            { dayOfWeek: 4, start: "09:00", end: "17:00" },
+        ];
+        replace(sunThuHours);
+    };
+
+    const handleApplyMonFriHours = () => {
         // Monday (1) through Friday (5) from 09:00 to 17:00
-        const standardHours: WorkingHours[] = [
+        const monFriHours: WorkingHours[] = [
             { dayOfWeek: 1, start: "09:00", end: "17:00" },
             { dayOfWeek: 2, start: "09:00", end: "17:00" },
             { dayOfWeek: 3, start: "09:00", end: "17:00" },
             { dayOfWeek: 4, start: "09:00", end: "17:00" },
             { dayOfWeek: 5, start: "09:00", end: "17:00" },
         ];
-        setValue("workingHours", standardHours, { shouldValidate: true });
+        replace(monFriHours);
     };
 
     const onSubmit = (data: ScheduleFormData) => {
@@ -159,24 +238,61 @@ export function ScheduleEditorDialog({
                                 <Globe className="h-3.5 w-3.5 text-primary" />
                                 Practice Timezone *
                             </Label>
-                            <Select
-                                value={currentTimezone}
-                                onValueChange={(val) =>
-                                    setValue("timezone", val, { shouldValidate: true })
-                                }
-                                disabled={updateScheduleMutation.isPending}
-                            >
-                                <SelectTrigger id="sched-tz" className="bg-background text-xs">
-                                    <SelectValue placeholder="Select timezone" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {COMMON_TIMEZONES.map((tz) => (
-                                        <SelectItem key={tz} value={tz} className="text-xs">
-                                            {tz}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <Popover open={tzOpen} onOpenChange={setTzOpen}>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        id="sched-tz"
+                                        type="button"
+                                        variant="outline"
+                                        role="combobox"
+                                        aria-expanded={tzOpen}
+                                        disabled={updateScheduleMutation.isPending}
+                                        className="w-full justify-between bg-background text-xs font-normal h-9"
+                                    >
+                                        <span className="truncate">{currentTimezone || "Select timezone"}</span>
+                                        <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[300px] p-2" align="start">
+                                    <div className="relative mb-2">
+                                        <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                                        <Input
+                                            placeholder="Search timezone..."
+                                            value={tzSearch}
+                                            onChange={(e) => setTzSearch(e.target.value)}
+                                            className="h-8 text-xs pl-8"
+                                        />
+                                    </div>
+                                    <div className="max-h-56 overflow-y-auto space-y-0.5">
+                                        {filteredTimezones.length === 0 ? (
+                                            <p className="text-xs text-muted-foreground text-center py-3">
+                                                No timezone found.
+                                            </p>
+                                        ) : (
+                                            filteredTimezones.map((tz) => (
+                                                <button
+                                                    key={tz}
+                                                    type="button"
+                                                    className={cn(
+                                                        "w-full text-left text-xs px-2.5 py-1.5 rounded-sm hover:bg-muted flex items-center justify-between transition-colors",
+                                                        tz === currentTimezone && "bg-primary/10 text-primary font-medium"
+                                                    )}
+                                                    onClick={() => {
+                                                        setValue("timezone", tz, { shouldValidate: true });
+                                                        setTzOpen(false);
+                                                        setTzSearch("");
+                                                    }}
+                                                >
+                                                    <span className="truncate">{tz}</span>
+                                                    {tz === currentTimezone && (
+                                                        <Check className="h-3.5 w-3.5 text-primary shrink-0 ml-1" />
+                                                    )}
+                                                </button>
+                                            ))
+                                        )}
+                                    </div>
+                                </PopoverContent>
+                            </Popover>
                             {errors.timezone && (
                                 <p className="text-xs text-destructive">
                                     {errors.timezone.message}
@@ -201,7 +317,7 @@ export function ScheduleEditorDialog({
                                     <SelectValue placeholder="Select duration" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {[15, 20, 30, 45, 60, 90, 120].map((mins) => (
+                                    {slotOptions.map((mins) => (
                                         <SelectItem key={mins} value={String(mins)} className="text-xs">
                                             {mins} minutes
                                         </SelectItem>
@@ -227,17 +343,28 @@ export function ScheduleEditorDialog({
                                     Define active consultation shifts. All shifts must align to the {currentSlotMinutes}-minute slot length.
                                 </p>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-1.5">
                                 <Button
                                     type="button"
                                     variant="outline"
                                     size="sm"
-                                    onClick={handleApplyStandardHours}
+                                    onClick={handleApplySunThuHours}
                                     className="h-8 text-xs gap-1 border-dashed"
                                     disabled={updateScheduleMutation.isPending}
                                 >
                                     <Sparkles className="h-3.5 w-3.5 text-primary" />
-                                    Default (Mon–Fri 9–5)
+                                    Sun–Thu 9–5
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleApplyMonFriHours}
+                                    className="h-8 text-xs gap-1 border-dashed"
+                                    disabled={updateScheduleMutation.isPending}
+                                >
+                                    <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
+                                    Mon–Fri 9–5
                                 </Button>
                                 <Button
                                     type="button"
@@ -347,6 +474,7 @@ export function ScheduleEditorDialog({
                                                 className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
                                                 onClick={() => remove(index)}
                                                 disabled={updateScheduleMutation.isPending}
+                                                aria-label="Remove shift"
                                                 title="Remove shift"
                                             >
                                                 <Trash2 className="h-4 w-4" />
