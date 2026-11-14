@@ -116,13 +116,13 @@ export function AppointmentsListTable({
                             day: "numeric",
                             hour: "2-digit",
                             minute: "2-digit",
-                            hour12: false,
+                            hourCycle: "h23",
                         }).format(new Date(row.original.startsAt));
                         const e = new Intl.DateTimeFormat("en-US", {
                             timeZone: tz,
                             hour: "2-digit",
                             minute: "2-digit",
-                            hour12: false,
+                            hourCycle: "h23",
                         }).format(new Date(row.original.endsAt));
                         timeDisplay = `${s} – ${e} (${tz})`;
                     } catch {

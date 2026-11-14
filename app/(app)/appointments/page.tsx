@@ -13,6 +13,7 @@ import {
     startOfDay,
     endOfDay,
 } from "date-fns";
+import { TZDate } from "@date-fns/tz";
 import { useQuery } from "@tanstack/react-query";
 import {
     Calendar as CalendarIcon,
@@ -23,13 +24,10 @@ import {
     List,
     CalendarDays,
     Clock,
-    Search,
-    RotateCcw,
 } from "lucide-react";
 
 import { api } from "@/lib/api";
 import { qk } from "@/lib/query-keys";
-import { useDebounce } from "@/lib/hooks/use-debounce";
 import { useAuth } from "@/components/providers/auth-provider";
 import { RequireRole } from "@/components/auth/require-role";
 import { Button } from "@/components/ui/button";
@@ -71,29 +69,19 @@ function AppointmentsContent() {
     const isDoctorUser = role === "doctor" && !!user?.doctorId;
     const canBook = role === "admin" || role === "staff" || role === "doctor";
 
-    // URL parameter parsing
-    const urlView = (searchParams.get("view") as "week" | "day" | "list") || "week";
+    // URL parameter parsing (validate view param against "week" | "day" | "list")
+    const rawView = searchParams.get("view");
+    const urlView: "week" | "day" | "list" =
+        rawView === "day" || rawView === "list" ? rawView : "week";
     const urlDate = searchParams.get("date") || format(new Date(), "yyyy-MM-dd");
-    const urlDoctorId = searchParams.get("doctorId") || (isDoctorUser ? user.doctorId! : "");
+    const urlDoctorId = isDoctorUser ? user.doctorId! : (searchParams.get("doctorId") || "");
     const urlStatus = (searchParams.get("status") as AppointmentStatus | "all") || "all";
 
     const [view, setView] = useState<"week" | "day" | "list">(urlView);
     const [selectedDateStr, setSelectedDateStr] = useState<string>(urlDate);
     const [selectedDoctorId, setSelectedDoctorId] = useState<string>(urlDoctorId);
     const [statusFilter, setStatusFilter] = useState<AppointmentStatus | "all">(urlStatus);
-    const [searchInput, setSearchInput] = useState<string>("");
     const [page, setPage] = useState<number>(1);
-
-    const debouncedSearch = useDebounce(searchInput, 400);
-
-    const selectedDate = useMemo(() => {
-        try {
-            const [y, m, d] = selectedDateStr.split("-").map(Number);
-            return new Date(y, m - 1, d);
-        } catch {
-            return new Date();
-        }
-    }, [selectedDateStr]);
 
     // Active dialog state
     const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
@@ -108,12 +96,8 @@ function AppointmentsContent() {
 
     const doctors = doctorsData?.data?.doctors || [];
 
-    // Sync state back to URL query parameters
-    const effectiveDoctorId =
-        selectedDoctorId ||
-        (isDoctorUser ? user?.doctorId : undefined) ||
-        (doctors[0]?._id) ||
-        "";
+    // Single doctor selection rule: locked for doctor role, user-selected for others, NO silent fallback to doctors[0]
+    const effectiveDoctorId = isDoctorUser ? user.doctorId! : selectedDoctorId;
 
     useEffect(() => {
         const params = new URLSearchParams();
@@ -125,24 +109,36 @@ function AppointmentsContent() {
         router.replace(`${pathname}?${params.toString()}`);
     }, [view, selectedDateStr, effectiveDoctorId, statusFilter, pathname, router]);
 
-    const activeDoctor = isDoctorUser
-        ? doctors.find((d) => d._id === user?.doctorId)
-        : doctors.find((d) => d._id === effectiveDoctorId);
+    const activeDoctor = effectiveDoctorId
+        ? doctors.find((d) => d._id === effectiveDoctorId)
+        : null;
+    const doctorTimezone = activeDoctor?.timezone || "UTC";
 
-    // Date range calculations for Calendar view
+    const selectedDate = useMemo(() => {
+        try {
+            const [y, m, d] = selectedDateStr.split("-").map(Number);
+            return new TZDate(y, m - 1, d, doctorTimezone);
+        } catch {
+            return new TZDate(new Date(), doctorTimezone);
+        }
+    }, [selectedDateStr, doctorTimezone]);
+
+    // Date range calculations for Calendar view computed in doctor's timezone
     const dateRange = useMemo(() => {
         if (view === "day") {
+            const s = startOfDay(selectedDate);
+            const e = endOfDay(selectedDate);
             return {
-                from: startOfDay(selectedDate).toISOString(),
-                to: endOfDay(selectedDate).toISOString(),
+                from: new Date(s.getTime()).toISOString(),
+                to: new Date(e.getTime()).toISOString(),
             };
         }
         // Week view
         const wStart = startOfWeek(selectedDate, { weekStartsOn: 0 });
         const wEnd = endOfWeek(selectedDate, { weekStartsOn: 0 });
         return {
-            from: wStart.toISOString(),
-            to: wEnd.toISOString(),
+            from: new Date(wStart.getTime()).toISOString(),
+            to: new Date(wEnd.getTime()).toISOString(),
         };
     }, [view, selectedDate]);
 
@@ -166,16 +162,15 @@ function AppointmentsContent() {
         enabled: (view === "week" || view === "day") && !!effectiveDoctorId,
     });
 
-    // Query for List view (Paginated)
+    // Query for List view (Paginated, supports all or specific doctor, NO search param)
     const listQueryParam = useMemo(() => {
         const params = new URLSearchParams();
         params.set("page", String(page));
         params.set("limit", "10");
         if (effectiveDoctorId) params.set("doctorId", effectiveDoctorId);
         if (statusFilter !== "all") params.set("status", statusFilter);
-        if (debouncedSearch) params.set("search", debouncedSearch);
         return params.toString();
-    }, [page, effectiveDoctorId, statusFilter, debouncedSearch]);
+    }, [page, effectiveDoctorId, statusFilter]);
 
     const { data: listData, isLoading: isLoadingList } = useQuery({
         queryKey: qk.appointments.list(`table_${listQueryParam}`),
@@ -208,7 +203,14 @@ function AppointmentsContent() {
     };
 
     const handleToday = () => {
-        setSelectedDateStr(format(new Date(), "yyyy-MM-dd"));
+        try {
+            const todayInTz = new Intl.DateTimeFormat("en-CA", {
+                timeZone: doctorTimezone,
+            }).format(new Date());
+            setSelectedDateStr(todayInTz);
+        } catch {
+            setSelectedDateStr(format(new Date(), "yyyy-MM-dd"));
+        }
     };
 
     const handleOpenDetails = (appointment: Appointment) => {
@@ -312,8 +314,8 @@ function AppointmentsContent() {
                     </div>
                 </div>
 
-                {/* Filters Row: Doctor, Status, Search */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2 border-t">
+                {/* Filters Row: Doctor and Status */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2 border-t">
                     {/* Doctor Selector */}
                     <div className="space-y-1">
                         <label className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
@@ -326,9 +328,9 @@ function AppointmentsContent() {
                             </div>
                         ) : (
                             <Select
-                                value={selectedDoctorId}
+                                value={selectedDoctorId || "all"}
                                 onValueChange={(id) => {
-                                    setSelectedDoctorId(id);
+                                    setSelectedDoctorId(id === "all" ? "" : id);
                                     setPage(1);
                                 }}
                                 disabled={isLoadingDoctors}
@@ -343,6 +345,9 @@ function AppointmentsContent() {
                                     />
                                 </SelectTrigger>
                                 <SelectContent>
+                                    <SelectItem value="all" className="text-xs">
+                                        All Practitioners
+                                    </SelectItem>
                                     {doctors.map((d) => (
                                         <SelectItem key={d._id} value={d._id} className="text-xs">
                                             {d.name} — {d.specialization}
@@ -388,36 +393,6 @@ function AppointmentsContent() {
                             </SelectContent>
                         </Select>
                     </div>
-
-                    {/* Search (primarily for List view) */}
-                    {view === "list" && (
-                        <div className="space-y-1 sm:col-span-2">
-                            <label className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
-                                <Search className="h-3 w-3 text-primary" />
-                                Search Patient or Notes
-                            </label>
-                            <div className="relative">
-                                <Input
-                                    placeholder="Search by patient name, phone, condition..."
-                                    value={searchInput}
-                                    onChange={(e) => {
-                                        setSearchInput(e.target.value);
-                                        setPage(1);
-                                    }}
-                                    className="h-8 text-xs pr-8"
-                                />
-                                {searchInput && (
-                                    <button
-                                        type="button"
-                                        onClick={() => setSearchInput("")}
-                                        className="absolute right-2 top-2 text-muted-foreground hover:text-foreground"
-                                    >
-                                        <RotateCcw className="h-3.5 w-3.5" />
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                    )}
                 </div>
             </div>
 
@@ -431,9 +406,13 @@ function AppointmentsContent() {
                     isLoading={isLoadingList}
                     onSelectAppointment={handleOpenDetails}
                 />
-            ) : !selectedDoctorId ? (
-                <div className="rounded-lg border border-dashed p-12 text-center text-sm text-muted-foreground">
-                    Please select a practitioner above to view their consultation calendar.
+            ) : !effectiveDoctorId ? (
+                <div className="rounded-lg border border-dashed p-12 text-center flex flex-col items-center justify-center bg-card">
+                    <Stethoscope className="h-10 w-10 text-muted-foreground/60 mb-3" />
+                    <h3 className="font-semibold text-base text-foreground">Select a Practitioner</h3>
+                    <p className="text-sm text-muted-foreground max-w-sm mt-1">
+                        Please select a doctor above to view their weekly schedule, clinical working hours, and booked appointments.
+                    </p>
                 </div>
             ) : (
                 <AppointmentsCalendar

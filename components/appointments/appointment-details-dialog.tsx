@@ -128,7 +128,7 @@ export function AppointmentDetailsDialog({
                 day: "numeric",
                 hour: "2-digit",
                 minute: "2-digit",
-                hour12: false,
+                hourCycle: "h23",
             }).format(new Date(dateStr));
         } catch {
             return format(new Date(dateStr), "MMM d, yyyy HH:mm");

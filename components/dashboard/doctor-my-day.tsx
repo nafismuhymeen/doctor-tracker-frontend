@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { format, startOfDay, endOfDay } from "date-fns";
+import { TZDate } from "@date-fns/tz";
 import { useQuery } from "@tanstack/react-query";
 import {
     Calendar,
@@ -36,6 +37,7 @@ import type {
     Appointment,
     AppointmentsResponse,
     AppointmentStatus,
+    Doctor,
     Patient,
 } from "@/types";
 
@@ -45,17 +47,26 @@ export function DoctorMyDay() {
 
     const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
     const [detailsOpen, setDetailsOpen] = useState(false);
-    const [todayDate] = useState(() => new Date());
-    const todayDateStr = format(todayDate, "yyyy-MM-dd");
 
-    // Query today's appointments for this doctor
+    // Fetch doctor profile for timezone
+    const { data: doctorData } = useQuery({
+        queryKey: qk.doctors.detail(doctorId),
+        queryFn: () =>
+            api.get<ApiResponse<{ doctor: Doctor }>>(`/doctors/${doctorId}`),
+        enabled: !!doctorId,
+    });
+    const doctor = doctorData?.data?.doctor;
+    const doctorTimezone = doctor?.timezone || "UTC";
+
+    // Query today's appointments for this doctor in their timezone
     const { data: apptsResponse, isLoading: isLoadingToday } = useQuery({
-        queryKey: qk.appointments.list(`doctor_today_${doctorId}_${todayDateStr}`),
+        queryKey: qk.appointments.list(`doctor_today_${doctorId}_${doctorTimezone}`),
         queryFn: () => {
-            const todayStart = startOfDay(todayDate).toISOString();
-            const todayEnd = endOfDay(todayDate).toISOString();
+            const todayInDoctorTz = new TZDate(new Date(), doctorTimezone);
+            const todayStart = startOfDay(todayInDoctorTz);
+            const todayEnd = endOfDay(todayInDoctorTz);
             return api.get<ApiResponse<AppointmentsResponse>>(
-                `/appointments?doctorId=${doctorId}&from=${todayStart}&to=${todayEnd}&limit=50`
+                `/appointments?doctorId=${doctorId}&from=${new Date(todayStart.getTime()).toISOString()}&to=${new Date(todayEnd.getTime()).toISOString()}&limit=50`
             );
         },
         enabled: !!doctorId,
@@ -67,6 +78,33 @@ export function DoctorMyDay() {
             (a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime()
         );
     }, [apptsResponse?.data?.appointments]);
+
+    const formatDoctorTime = (isoString: string) => {
+        try {
+            return new Intl.DateTimeFormat("en-US", {
+                timeZone: doctorTimezone,
+                hour: "2-digit",
+                minute: "2-digit",
+                hourCycle: "h23",
+            }).format(new Date(isoString));
+        } catch {
+            return format(new Date(isoString), "HH:mm");
+        }
+    };
+
+    const headerDateStr = useMemo(() => {
+        try {
+            return new Intl.DateTimeFormat("en-US", {
+                timeZone: doctorTimezone,
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+            }).format(new Date());
+        } catch {
+            return format(new Date(), "EEEE, MMMM d, yyyy");
+        }
+    }, [doctorTimezone]);
 
     const getStatusBadge = (status: AppointmentStatus) => {
         switch (status) {
@@ -111,7 +149,7 @@ export function DoctorMyDay() {
                         My Day
                     </h1>
                     <p className="text-sm text-muted-foreground mt-0.5">
-                        {format(todayDate, "EEEE, MMMM d, yyyy")} • Clinical schedule for Dr. {user?.name || "Doctor"}
+                        {headerDateStr} • Clinical schedule for Dr. {doctor?.name || user?.name || "Doctor"} ({doctorTimezone})
                     </p>
                 </div>
 
@@ -184,8 +222,8 @@ export function DoctorMyDay() {
                                         ? (appt.patientId as Patient)
                                         : null;
 
-                                const startTimeStr = format(new Date(appt.startsAt), "HH:mm");
-                                const endTimeStr = format(new Date(appt.endsAt), "HH:mm");
+                                const startTimeStr = formatDoctorTime(appt.startsAt);
+                                const endTimeStr = formatDoctorTime(appt.endsAt);
 
                                 return (
                                     <div

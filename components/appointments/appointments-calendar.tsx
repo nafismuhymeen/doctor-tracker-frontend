@@ -6,8 +6,8 @@ import {
     startOfWeek,
     addDays,
     isSameDay,
-    isToday,
 } from "date-fns";
+import { TZDate } from "@date-fns/tz";
 import { Clock, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
 import { parseMinutes, DAY_NAMES } from "@/lib/schedule-validation";
 import type { Appointment, AppointmentStatus, Doctor, Patient } from "@/types";
@@ -75,15 +75,29 @@ export function AppointmentsCalendar({
         return list;
     }, [startHour, endHour]);
 
+    const calendarDate = useMemo(() => {
+        if (selectedDate instanceof TZDate) return selectedDate;
+        return new TZDate(
+            selectedDate.getFullYear(),
+            selectedDate.getMonth(),
+            selectedDate.getDate(),
+            doctorTimezone
+        );
+    }, [selectedDate, doctorTimezone]);
+
+    const doctorToday = useMemo(() => {
+        return new TZDate(new Date(), doctorTimezone);
+    }, [doctorTimezone]);
+
     // Days list for the X axis
     const days = useMemo(() => {
         if (view === "day") {
-            return [selectedDate];
+            return [calendarDate];
         }
-        // Sunday-start week
-        const weekStart = startOfWeek(selectedDate, { weekStartsOn: 0 });
+        // Sunday-start week in doctor's timezone
+        const weekStart = startOfWeek(calendarDate, { weekStartsOn: 0 });
         return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-    }, [view, selectedDate]);
+    }, [view, calendarDate]);
 
     // Helper: extract doctor timezone hour and minute from appointment UTC ISO
     const getDoctorTimeInfo = (isoString: string) => {
@@ -96,7 +110,7 @@ export function AppointmentsCalendar({
                 day: "2-digit",
                 hour: "2-digit",
                 minute: "2-digit",
-                hour12: false,
+                hourCycle: "h23",
             });
             const parts = formatter.formatToParts(date);
             const h = Number(parts.find((p) => p.type === "hour")?.value || 0);
@@ -191,8 +205,8 @@ export function AppointmentsCalendar({
                         Time
                     </div>
                     {days.map((day, idx) => {
-                        const dayActive = isToday(day);
-                        const isDaySelected = isSameDay(day, selectedDate);
+                        const dayActive = isSameDay(day, doctorToday);
+                        const isDaySelected = isSameDay(day, calendarDate);
                         return (
                             <div
                                 key={idx}

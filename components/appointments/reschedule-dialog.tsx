@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { format } from "date-fns";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -68,14 +68,26 @@ export function RescheduleDialog({
             ? appointment.patientId.name
             : "Patient";
 
-    const [selectedDate, setSelectedDate] = useState<string>(() =>
-        format(new Date(), "yyyy-MM-dd")
-    );
+    const doctorTodayStr = useMemo(() => {
+        try {
+            return new Intl.DateTimeFormat("en-CA", { timeZone: doctorTimezone }).format(new Date());
+        } catch {
+            return format(new Date(), "yyyy-MM-dd");
+        }
+    }, [doctorTimezone]);
+
+    const [selectedDate, setSelectedDate] = useState<string>(() => {
+        try {
+            return new Intl.DateTimeFormat("en-CA", { timeZone: doctorTimezone }).format(new Date());
+        } catch {
+            return format(new Date(), "yyyy-MM-dd");
+        }
+    });
     const [selectedSlot, setSelectedSlot] = useState<AvailabilitySlot | null>(null);
 
     const handleOpenChange = (newOpen: boolean) => {
         if (!newOpen) {
-            setSelectedDate(format(new Date(), "yyyy-MM-dd"));
+            setSelectedDate(doctorTodayStr);
             setSelectedSlot(null);
         }
         onOpenChange(newOpen);
@@ -103,7 +115,7 @@ export function RescheduleDialog({
                 timeZone: doctorTimezone,
                 hour: "2-digit",
                 minute: "2-digit",
-                hour12: false,
+                hourCycle: "h23",
             }).format(new Date(isoString));
         } catch {
             return format(new Date(isoString), "HH:mm");
@@ -126,7 +138,7 @@ export function RescheduleDialog({
                 queryKey: qk.doctors.availability(doctorId, selectedDate, 1),
             });
             queryClient.invalidateQueries({ queryKey: qk.dashboard.appointments() });
-            onOpenChange(false);
+            handleOpenChange(false);
             onRescheduled?.();
         },
         onError: (err: unknown) => {
@@ -164,8 +176,6 @@ export function RescheduleDialog({
 
     if (!appointment) return null;
 
-    const todayDateStr = format(new Date(), "yyyy-MM-dd");
-
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogContent className="sm:max-w-[520px] max-h-[90vh] flex flex-col">
@@ -190,7 +200,7 @@ export function RescheduleDialog({
                         <Input
                             id="reschedule-date"
                             type="date"
-                            min={todayDateStr}
+                            min={doctorTodayStr}
                             value={selectedDate}
                             onChange={(e) => {
                                 setSelectedDate(e.target.value);

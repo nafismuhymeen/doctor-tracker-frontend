@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -73,23 +73,6 @@ export function BookAppointmentDialog({
 
     const [selectedDoctorIdOverride, setSelectedDoctorIdOverride] = useState<string | null>(null);
     const selectedDoctorId = selectedDoctorIdOverride ?? defaultDoctorId;
-    const [selectedDate, setSelectedDate] = useState<string>(() =>
-        format(new Date(), "yyyy-MM-dd")
-    );
-    const [selectedSlot, setSelectedSlot] = useState<AvailabilitySlot | null>(null);
-    const [selectedPatientId, setSelectedPatientId] = useState<string>("");
-    const [reason, setReason] = useState<string>("");
-
-    const handleOpenChange = (newOpen: boolean) => {
-        if (!newOpen) {
-            setSelectedDoctorIdOverride(null);
-            setSelectedDate(format(new Date(), "yyyy-MM-dd"));
-            setSelectedSlot(null);
-            setSelectedPatientId("");
-            setReason("");
-        }
-        setOpen(newOpen);
-    };
 
     // Fetch active doctors (for admin/staff selection)
     const { data: doctorsData, isLoading: isLoadingDoctors } = useQuery({
@@ -103,6 +86,44 @@ export function BookAppointmentDialog({
     const activeDoctor = isDoctorUser
         ? doctors.find((d) => d._id === user?.doctorId)
         : doctors.find((d) => d._id === selectedDoctorId);
+
+    const doctorTimezone = activeDoctor?.timezone || "UTC";
+
+    const getDoctorTodayStr = (tz: string) => {
+        try {
+            return new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(new Date());
+        } catch {
+            return format(new Date(), "yyyy-MM-dd");
+        }
+    };
+
+    const doctorTodayStr = useMemo(() => {
+        return getDoctorTodayStr(doctorTimezone);
+    }, [doctorTimezone]);
+
+    const [selectedDate, setSelectedDate] = useState<string>(() =>
+        getDoctorTodayStr(activeDoctor?.timezone || "UTC")
+    );
+    const [selectedSlot, setSelectedSlot] = useState<AvailabilitySlot | null>(null);
+    const [selectedPatientId, setSelectedPatientId] = useState<string>("");
+    const [reason, setReason] = useState<string>("");
+    const [patientSearch, setPatientSearch] = useState<string>("");
+
+    const resetForm = () => {
+        setSelectedDoctorIdOverride(null);
+        setSelectedDate(doctorTodayStr);
+        setSelectedSlot(null);
+        setSelectedPatientId("");
+        setReason("");
+        setPatientSearch("");
+    };
+
+    const handleOpenChange = (newOpen: boolean) => {
+        if (!newOpen) {
+            resetForm();
+        }
+        setOpen(newOpen);
+    };
 
     // Fetch availability for the selected doctor and date
     const {
@@ -128,9 +149,20 @@ export function BookAppointmentDialog({
         enabled: open && !!selectedDoctorId,
     });
 
-    const assignedPatients = patientsData?.data?.patients || [];
+    const rawPatients = patientsData?.data?.patients;
+    const assignedPatients = useMemo(() => rawPatients || [], [rawPatients]);
     const slots = availabilityData?.data?.days?.[0]?.slots || [];
-    const doctorTimezone = availabilityData?.data?.timezone || activeDoctor?.timezone || "UTC";
+
+    const filteredPatients = useMemo(() => {
+        if (!patientSearch.trim()) return assignedPatients;
+        const q = patientSearch.toLowerCase().trim();
+        return assignedPatients.filter(
+            (p) =>
+                p.name.toLowerCase().includes(q) ||
+                p.phone.toLowerCase().includes(q) ||
+                p.condition?.toLowerCase().includes(q)
+        );
+    }, [assignedPatients, patientSearch]);
 
     // Format local wall-clock time string from UTC ISO for buttons
     const formatSlotTime = (isoString: string) => {
@@ -139,7 +171,7 @@ export function BookAppointmentDialog({
                 timeZone: doctorTimezone,
                 hour: "2-digit",
                 minute: "2-digit",
-                hour12: false,
+                hourCycle: "h23",
             }).format(new Date(isoString));
         } catch {
             return format(new Date(isoString), "HH:mm");
@@ -167,6 +199,7 @@ export function BookAppointmentDialog({
                 queryKey: qk.doctors.availability(selectedDoctorId, selectedDate, 1),
             });
             queryClient.invalidateQueries({ queryKey: qk.dashboard.appointments() });
+            resetForm();
             setOpen(false);
         },
         onError: (err: unknown) => {
@@ -207,8 +240,6 @@ export function BookAppointmentDialog({
         !!selectedPatientId &&
         !!selectedSlot &&
         !bookMutation.isPending;
-
-    const todayDateStr = format(new Date(), "yyyy-MM-dd");
 
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -257,6 +288,7 @@ export function BookAppointmentDialog({
                                     setSelectedDoctorIdOverride(id);
                                     setSelectedSlot(null);
                                     setSelectedPatientId("");
+                                    setPatientSearch("");
                                 }}
                                 disabled={bookMutation.isPending || isLoadingDoctors}
                             >
@@ -289,7 +321,7 @@ export function BookAppointmentDialog({
                         <Input
                             id="book-date"
                             type="date"
-                            min={todayDateStr}
+                            min={doctorTodayStr}
                             value={selectedDate}
                             onChange={(e) => {
                                 setSelectedDate(e.target.value);
@@ -396,22 +428,38 @@ export function BookAppointmentDialog({
                                 </Button>
                             </div>
                         ) : (
-                            <Select
-                                value={selectedPatientId}
-                                onValueChange={setSelectedPatientId}
-                                disabled={bookMutation.isPending}
-                            >
-                                <SelectTrigger id="book-patient" className="text-xs">
-                                    <SelectValue placeholder="Select patient" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {assignedPatients.map((p) => (
-                                        <SelectItem key={p._id} value={p._id} className="text-xs">
-                                            {p.name} ({p.phone}) — {p.condition}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <div className="space-y-2">
+                                <Input
+                                    type="text"
+                                    placeholder="Search patient by name, phone, condition..."
+                                    value={patientSearch}
+                                    onChange={(e) => setPatientSearch(e.target.value)}
+                                    className="h-8 text-xs"
+                                    disabled={bookMutation.isPending}
+                                />
+                                <Select
+                                    value={selectedPatientId}
+                                    onValueChange={setSelectedPatientId}
+                                    disabled={bookMutation.isPending}
+                                >
+                                    <SelectTrigger id="book-patient" className="text-xs">
+                                        <SelectValue placeholder="Select patient" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {filteredPatients.length === 0 ? (
+                                            <div className="p-2 text-xs text-muted-foreground text-center">
+                                                No matching patients found
+                                            </div>
+                                        ) : (
+                                            filteredPatients.map((p) => (
+                                                <SelectItem key={p._id} value={p._id} className="text-xs">
+                                                    {p.name} ({p.phone}) — {p.condition}
+                                                </SelectItem>
+                                            ))
+                                        )}
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         )}
                     </div>
 
