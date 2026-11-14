@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { format } from "date-fns";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     ArrowLeft,
@@ -23,6 +24,7 @@ import {
     CalendarClock,
     Clock,
     Globe,
+    ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -34,6 +36,8 @@ import { AddPatientDialog } from "@/components/doctors/add-patient-dialog";
 import { EditDoctorDialog } from "@/components/doctors/edit-doctor-dialog";
 import { DeleteDoctorDialog } from "@/components/doctors/delete-doctor-dialog";
 import { ScheduleEditorDialog } from "@/components/doctors/schedule-editor-dialog";
+import { AppointmentDetailsDialog } from "@/components/appointments/appointment-details-dialog";
+import { BookAppointmentDialog } from "@/components/appointments/book-appointment-dialog";
 import { DAY_NAMES } from "@/lib/schedule-validation";
 import {
     AlertDialog,
@@ -58,7 +62,14 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { ApiResponse, Doctor, Patient, PatientsResponse } from "@/types";
+import type {
+    ApiResponse,
+    Appointment,
+    AppointmentsResponse,
+    Doctor,
+    Patient,
+    PatientsResponse,
+} from "@/types";
 
 export default function DoctorDetailPage() {
     const params = useParams();
@@ -90,6 +101,23 @@ export default function DoctorDetailPage() {
     const [editDoctorOpen, setEditDoctorOpen] = useState(false);
     const [deleteDoctorOpen, setDeleteDoctorOpen] = useState(false);
     const [editScheduleOpen, setEditScheduleOpen] = useState(false);
+    const [selectedAppt, setSelectedAppt] = useState<Appointment | null>(null);
+    const [apptDetailsOpen, setApptDetailsOpen] = useState(false);
+
+    // Fetch upcoming appointments
+    const { data: upcomingApptsData, isLoading: isLoadingUpcoming } = useQuery({
+        queryKey: qk.appointments.list(`doctor_upcoming_${doctorId}`),
+        queryFn: () => {
+            const now = new Date();
+            const in7Days = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+            return api.get<ApiResponse<AppointmentsResponse>>(
+                `/appointments?doctorId=${doctorId}&from=${now.toISOString()}&to=${in7Days.toISOString()}&status=scheduled&limit=20`
+            );
+        },
+        enabled: !!doctorId,
+    });
+
+    const upcomingAppointments = upcomingApptsData?.data?.appointments || [];
 
     // Debounce search input to avoid repeated API requests while typing
     const debouncedSearch = useDebounce(search, 400);
@@ -419,6 +447,73 @@ export default function DoctorDetailPage() {
                             </div>
                         </CardContent>
                     </Card>
+
+                    {/* Upcoming Consultations Card (Next 7 Days) */}
+                    <Card className="min-w-0 max-w-full">
+                        <CardHeader className="pb-3 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div>
+                                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                                    <Calendar className="h-4 w-4 text-primary" />
+                                    Upcoming Consultations (Next 7 Days)
+                                </CardTitle>
+                                <CardDescription className="text-xs mt-0.5">
+                                    Confirmed consultations scheduled with Dr. {doctor.name}.
+                                </CardDescription>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <BookAppointmentDialog initialDoctorId={doctorId} />
+                                <Button asChild variant="outline" size="sm" className="h-8 text-xs gap-1">
+                                    <Link href={`/appointments?doctorId=${doctorId}&view=week`}>
+                                        Calendar View
+                                        <ArrowRight className="h-3.5 w-3.5" />
+                                    </Link>
+                                </Button>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="p-4 sm:p-6">
+                            {isLoadingUpcoming ? (
+                                <div className="flex items-center justify-center p-6 text-xs text-muted-foreground gap-2">
+                                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                                    Loading upcoming consultations...
+                                </div>
+                            ) : upcomingAppointments.length === 0 ? (
+                                <div className="text-center py-6 border border-dashed rounded-lg text-xs text-muted-foreground">
+                                    No consultations scheduled for Dr. {doctor.name} in the next 7 days.
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    {upcomingAppointments.map((appt) => {
+                                        const p =
+                                            typeof appt.patientId === "object" && appt.patientId !== null
+                                                ? (appt.patientId as Patient)
+                                                : null;
+                                        return (
+                                            <div
+                                                key={appt._id}
+                                                onClick={() => {
+                                                    setSelectedAppt(appt);
+                                                    setApptDetailsOpen(true);
+                                                }}
+                                                className="p-3 rounded-lg border bg-card hover:bg-muted/40 cursor-pointer transition-colors shadow-2xs space-y-1"
+                                            >
+                                                <div className="flex items-center justify-between">
+                                                    <span className="font-semibold text-xs text-foreground truncate">
+                                                        {p?.name || "Patient"}
+                                                    </span>
+                                                    <span className="text-[10px] font-mono bg-blue-500/10 text-blue-600 px-1.5 py-0.5 rounded">
+                                                        {format(new Date(appt.startsAt), "MMM d, HH:mm")}
+                                                    </span>
+                                                </div>
+                                                <div className="text-[11px] text-muted-foreground truncate">
+                                                    {p?.phone || p?.condition || "Consultation"}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
                 </>
                 )}
 
@@ -707,6 +802,12 @@ export default function DoctorDetailPage() {
                     onOpenChange={setEditScheduleOpen}
                 />
             )}
+            {/* Appointment Details Dialog */}
+            <AppointmentDetailsDialog
+                appointment={selectedAppt}
+                open={apptDetailsOpen}
+                onOpenChange={setApptDetailsOpen}
+            />
         </>
     );
 }

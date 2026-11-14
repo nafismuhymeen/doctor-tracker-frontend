@@ -1,8 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ScheduleEditorDialog } from "@/components/doctors/schedule-editor-dialog";
+import { api, ApiError } from "@/lib/api";
+import { toast } from "sonner";
+
+vi.mock("sonner", () => ({
+    toast: {
+        error: vi.fn(),
+        success: vi.fn(),
+    },
+}));
 
 vi.mock("@/lib/api", () => ({
     api: {
@@ -94,5 +103,36 @@ describe("ScheduleEditorDialog Presets & Configuration", () => {
         // Should have 5 shift cards created with Remove shift buttons
         const removeButtons = screen.getAllByRole("button", { name: /Remove shift/i });
         expect(removeButtons).toHaveLength(5);
+    });
+
+    it("maps UNALIGNED_WORKING_HOURS error code specifically", async () => {
+        vi.mocked(api.patch).mockRejectedValueOnce(
+            new ApiError(
+                "Working hours must align to the 45-minute slot length (09:00-17:00 is 480 minutes)",
+                400,
+                "UNALIGNED_WORKING_HOURS"
+            )
+        );
+
+        renderWithClient(
+            <ScheduleEditorDialog
+                doctorId="doc-1"
+                doctorName="Dr. House"
+                initialTimezone="Asia/Dhaka"
+                initialSlotMinutes={30}
+                open={true}
+                onOpenChange={vi.fn()}
+            />
+        );
+
+        // Submit form
+        fireEvent.click(screen.getByRole("button", { name: /Save Schedule/i }));
+
+        await waitFor(() => {
+            expect(toast.error).toHaveBeenCalledWith("Unaligned Working Hours", {
+                description:
+                    "Working hours must align to the 45-minute slot length (09:00-17:00 is 480 minutes)",
+            });
+        });
     });
 });

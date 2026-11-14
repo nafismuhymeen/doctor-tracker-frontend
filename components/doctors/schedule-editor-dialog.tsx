@@ -176,6 +176,12 @@ export function ScheduleEditorDialog({
         },
         onError: (err: unknown) => {
             if (err instanceof ApiError) {
+                if (err.code === "UNALIGNED_WORKING_HOURS") {
+                    toast.error("Unaligned Working Hours", {
+                        description: err.message,
+                    });
+                    return;
+                }
                 toast.error("Schedule Update Failed", { description: err.message });
             } else {
                 toast.error("Schedule Update Failed", {

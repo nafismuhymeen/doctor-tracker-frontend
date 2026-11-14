@@ -28,7 +28,6 @@ import {
     Legend,
 } from "recharts";
 
-import Link from "next/link";
 import { api } from "@/lib/api";
 import { useAuth } from "@/components/providers/auth-provider";
 import { qk } from "@/lib/query-keys";
@@ -48,6 +47,9 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { DoctorMyDay } from "@/components/dashboard/doctor-my-day";
+import { AppointmentsDashboard } from "@/components/dashboard/appointments-dashboard";
 import type { ApiResponse, DashboardStats } from "@/types";
 
 const CHART_COLORS = [
@@ -62,7 +64,7 @@ const CHART_COLORS = [
 ];
 
 export default function DashboardPage() {
-    const { user, role } = useAuth();
+    const { role } = useAuth();
     const isDoctor = role === "doctor";
     const [timeRange, setTimeRange] = useState("30d");
 
@@ -83,99 +85,81 @@ export default function DashboardPage() {
     const stats = response?.data;
 
     if (isDoctor) {
-        return (
-            <div className="space-y-6">
-                <div>
-                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-                        Doctor Portal
-                    </h1>
-                    <p className="text-sm text-muted-foreground mt-1">
-                        Welcome back, Dr. {user?.name || "Doctor"}
-                    </p>
-                </div>
-
-                <Card className="border-primary/20 bg-primary/5">
-                    <CardHeader>
-                        <CardTitle className="text-lg flex items-center gap-2">
-                            <Stethoscope className="h-5 w-5 text-primary" />
-                            Doctor Workspace
-                        </CardTitle>
-                        <CardDescription>
-                            Your upcoming schedule and appointments calendar will be available here in Phase F3.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <p className="text-sm text-muted-foreground">
-                            You can currently review your assigned patients or view your doctor profile.
-                        </p>
-                        <div className="flex flex-wrap gap-3">
-                            <Button asChild size="sm">
-                                <Link href="/patients">
-                                    <Users className="h-4 w-4 mr-1.5" />
-                                    View My Patients
-                                </Link>
-                            </Button>
-                            {user?.doctorId && (
-                                <Button asChild variant="outline" size="sm">
-                                    <Link href={`/doctors/${user.doctorId}`}>
-                                        <Stethoscope className="h-4 w-4 mr-1.5" />
-                                        My Doctor Profile
-                                    </Link>
-                                </Button>
-                            )}
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-        );
+        return <DoctorMyDay />;
     }
 
     return (
         <div className="space-y-6">
-                {/* Header section with Range Selector */}
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <Tabs defaultValue="overview" className="space-y-6">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b pb-4">
                     <div>
                         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-                            Admin Dashboard
+                            Clinical Dashboard
                         </h1>
                         <p className="text-sm text-muted-foreground mt-1">
-                            System performance, doctor patient distributions, and registration trends
+                            System performance, clinical appointments, and patient registration trends.
                         </p>
                     </div>
 
-                    <div className="flex items-center gap-3">
-                        <div className="w-[140px]">
-                            <Select
-                                value={timeRange}
-                                onValueChange={(val) => setTimeRange(val)}
-                            >
-                                <SelectTrigger className="h-9">
-                                    <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
-                                    <SelectValue placeholder="Select Range" />
-                                </SelectTrigger>
-                                <SelectContent align="end">
-                                    <SelectItem value="7d">Last 7 days</SelectItem>
-                                    <SelectItem value="30d">Last 30 days</SelectItem>
-                                    <SelectItem value="90d">Last 90 days</SelectItem>
-                                    <SelectItem value="1y">Last year</SelectItem>
-                                    <SelectItem value="all">All time</SelectItem>
-                                </SelectContent>
-                            </Select>
+                    <TabsList className="grid grid-cols-2 w-[280px]">
+                        <TabsTrigger value="overview" className="text-xs">
+                            Overview
+                        </TabsTrigger>
+                        <TabsTrigger value="appointments" className="text-xs">
+                            Appointments
+                        </TabsTrigger>
+                    </TabsList>
+                </div>
+
+                <TabsContent value="appointments" className="space-y-6 pt-2">
+                    <AppointmentsDashboard initialRange="30d" />
+                </TabsContent>
+
+                <TabsContent value="overview" className="space-y-6 pt-2">
+                    {/* Header section with Range Selector */}
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <h2 className="text-lg font-semibold tracking-tight">
+                                Registration & Specialty Statistics
+                            </h2>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                                Aggregated patient volume and practitioner distributions
+                            </p>
                         </div>
 
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-9 w-9"
-                            onClick={() => refetch()}
-                            title="Refresh statistics"
-                        >
-                            <RefreshCw
-                                className={`h-4 w-4 ${isRefetching ? "animate-spin" : ""}`}
-                            />
-                        </Button>
+                        <div className="flex items-center gap-3">
+                            <div className="w-[140px]">
+                                <Select
+                                    value={timeRange}
+                                    onValueChange={(val) => setTimeRange(val)}
+                                >
+                                    <SelectTrigger className="h-9">
+                                        <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
+                                        <SelectValue placeholder="Select Range" />
+                                    </SelectTrigger>
+                                    <SelectContent align="end">
+                                        <SelectItem value="7d">Last 7 days</SelectItem>
+                                        <SelectItem value="30d">Last 30 days</SelectItem>
+                                        <SelectItem value="90d">Last 90 days</SelectItem>
+                                        <SelectItem value="1y">Last year</SelectItem>
+                                        <SelectItem value="all">All time</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-9 w-9"
+                                onClick={() => refetch()}
+                                title="Refresh statistics"
+                            >
+                                <RefreshCw
+                                    className={`h-4 w-4 ${isRefetching ? "animate-spin" : ""}`}
+                                />
+                            </Button>
+                        </div>
                     </div>
-                </div>
 
                 {/* 1. Summary Cards */}
                 <div className="grid gap-4 sm:grid-cols-3">
@@ -558,7 +542,9 @@ export default function DashboardPage() {
                         </CardContent>
                     </Card>
                 </div>
-            </div>
+            </TabsContent>
+        </Tabs>
+    </div>
     );
 }
 

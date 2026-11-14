@@ -176,6 +176,24 @@ export interface AppointmentsResponse {
     pagination: Pagination;
 }
 
+export interface AvailabilitySlot {
+    startsAt: string;
+    endsAt: string;
+    available: boolean;
+}
+
+export interface AvailabilityDay {
+    date: string;
+    slots: AvailabilitySlot[];
+}
+
+export interface DoctorAvailabilityResponse {
+    doctorId: string;
+    timezone: string;
+    slotMinutes: number;
+    days: AvailabilityDay[];
+}
+
 export interface VisitsResponse {
     visits: Visit[];
     pagination: Pagination;

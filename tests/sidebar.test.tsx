@@ -56,10 +56,11 @@ describe("Sidebar Navigation & Role Portal Visibility", () => {
             // Check portal title
             expect(screen.getByText(expectedTitle)).toBeInTheDocument();
 
-            // All 4 roles currently have read access to Dashboard, Doctors, and Patients
+            // All 4 roles currently have read access to Dashboard, Doctors, Patients, and Appointments
             expect(screen.getByRole("link", { name: /Dashboard/i })).toBeInTheDocument();
             expect(screen.getByRole("link", { name: /Doctors/i })).toBeInTheDocument();
             expect(screen.getByRole("link", { name: /Patients/i })).toBeInTheDocument();
+            expect(screen.getByRole("link", { name: /Appointments/i })).toBeInTheDocument();
 
             // Users management is visible strictly to admin
             if (role === "admin") {

@@ -545,6 +545,13 @@ export interface paths {
                     };
                     content?: never;
                 };
+                /** @description Validation error or UNALIGNED_WORKING_HOURS */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
                 /** @description Doctor with this email already exists */
                 409: {
                     headers: {
@@ -647,6 +654,13 @@ export interface paths {
             responses: {
                 /** @description Doctor updated */
                 200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Validation error or UNALIGNED_WORKING_HOURS */
+                400: {
                     headers: {
                         [name: string]: unknown;
                     };

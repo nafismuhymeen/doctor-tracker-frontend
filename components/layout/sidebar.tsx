@@ -9,6 +9,7 @@ import {
     Users,
     UserCog,
     HeartPulse,
+    Calendar,
     type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -39,6 +40,12 @@ const navigationItems: NavItem[] = [
         href: "/patients",
         icon: Users,
         action: "patients.read",
+    },
+    {
+        name: "Appointments",
+        href: "/appointments",
+        icon: Calendar,
+        action: "appointments.list",
     },
     {
         name: "Users",
