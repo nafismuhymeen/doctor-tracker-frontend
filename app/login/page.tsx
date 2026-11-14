@@ -60,6 +60,7 @@ export function getLoginErrorMessage(error: unknown): string {
  */
 export function sanitizeNextUrl(next: string | null | undefined): string | null {
     if (!next) return null;
+    if (/[\s\u0000-\u001F\u007F]/.test(next)) return null;
     if (next.startsWith("/") && !next.startsWith("//") && !next.includes("\\")) {
         return next;
     }

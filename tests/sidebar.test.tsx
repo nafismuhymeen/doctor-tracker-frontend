@@ -60,6 +60,13 @@ describe("Sidebar Navigation & Role Portal Visibility", () => {
             expect(screen.getByRole("link", { name: /Dashboard/i })).toBeInTheDocument();
             expect(screen.getByRole("link", { name: /Doctors/i })).toBeInTheDocument();
             expect(screen.getByRole("link", { name: /Patients/i })).toBeInTheDocument();
+
+            // Users management is visible strictly to admin
+            if (role === "admin") {
+                expect(screen.getByRole("link", { name: /Users/i })).toBeInTheDocument();
+            } else {
+                expect(screen.queryByRole("link", { name: /Users/i })).not.toBeInTheDocument();
+            }
         });
     });
 

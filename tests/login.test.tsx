@@ -99,6 +99,17 @@ describe("sanitizeNextUrl", () => {
         expect(sanitizeNextUrl("javascript:alert(1)")).toBe(null);
     });
 
+    it("rejects any whitespace or control characters", () => {
+        expect(sanitizeNextUrl("\t/patients")).toBe(null);
+        expect(sanitizeNextUrl("/patients\t")).toBe(null);
+        expect(sanitizeNextUrl("/patients\n")).toBe(null);
+        expect(sanitizeNextUrl("/patients\r\n")).toBe(null);
+        expect(sanitizeNextUrl("/patients with space")).toBe(null);
+        expect(sanitizeNextUrl("/doctors ")).toBe(null);
+        expect(sanitizeNextUrl("/\0evil")).toBe(null);
+        expect(sanitizeNextUrl("/\u001Ftest")).toBe(null);
+    });
+
     it("returns null for empty, null, or undefined values", () => {
         expect(sanitizeNextUrl("")).toBe(null);
         expect(sanitizeNextUrl(null)).toBe(null);

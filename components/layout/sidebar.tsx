@@ -7,6 +7,7 @@ import {
     LayoutDashboard,
     Stethoscope,
     Users,
+    UserCog,
     HeartPulse,
     type LucideIcon,
 } from "lucide-react";
@@ -38,6 +39,12 @@ const navigationItems: NavItem[] = [
         href: "/patients",
         icon: Users,
         action: "patients.read",
+    },
+    {
+        name: "Users",
+        href: "/users",
+        icon: UserCog,
+        action: "users.manage",
     },
 ];
 
