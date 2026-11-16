@@ -40,3 +40,4 @@ test.describe("E2E: Immutable Audit Trail & Inspection", () => {
     await expect(page).toHaveURL(/action=auth\.login\.failure/);
   });
 });
+

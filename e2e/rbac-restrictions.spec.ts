@@ -61,3 +61,4 @@ test.describe("E2E: RBAC Permission Boundaries", () => {
     await expect(page.getByRole("tab", { name: /clinical visits/i })).not.toBeVisible();
   });
 });
+
