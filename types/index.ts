@@ -135,6 +135,7 @@ export interface AuditLog {
         ip?: string;
         userAgent?: string;
         requestId?: string;
+        reason?: string;
     };
     createdAt: string;
 }

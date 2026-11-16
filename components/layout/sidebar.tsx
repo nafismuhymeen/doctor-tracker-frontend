@@ -53,6 +53,12 @@ const navigationItems: NavItem[] = [
         icon: UserCog,
         action: "users.manage",
     },
+    {
+        name: "Audit Logs",
+        href: "/audit",
+        icon: Activity,
+        action: "audit.view",
+    },
 ];
 
 const roleTitles: Record<string, string> = {

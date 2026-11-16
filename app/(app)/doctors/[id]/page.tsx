@@ -25,6 +25,7 @@ import {
     Clock,
     Globe,
     ArrowRight,
+    History,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -38,6 +39,7 @@ import { DeleteDoctorDialog } from "@/components/doctors/delete-doctor-dialog";
 import { ScheduleEditorDialog } from "@/components/doctors/schedule-editor-dialog";
 import { AppointmentDetailsDialog } from "@/components/appointments/appointment-details-dialog";
 import { BookAppointmentDialog } from "@/components/appointments/book-appointment-dialog";
+import { EntityHistoryDrawer } from "@/components/audit/entity-history-drawer";
 import { DAY_NAMES } from "@/lib/schedule-validation";
 import {
     AlertDialog,
@@ -96,11 +98,13 @@ export default function DoctorDetailPage() {
         targetDoctorId: doctorId,
         doctorId: user?.doctorId,
     });
+    const canViewAudit = can("audit.view");
 
     // Dialog states
     const [editDoctorOpen, setEditDoctorOpen] = useState(false);
     const [deleteDoctorOpen, setDeleteDoctorOpen] = useState(false);
     const [editScheduleOpen, setEditScheduleOpen] = useState(false);
+    const [historyOpen, setHistoryOpen] = useState(false);
     const [selectedAppt, setSelectedAppt] = useState<Appointment | null>(null);
     const [apptDetailsOpen, setApptDetailsOpen] = useState(false);
 
@@ -304,6 +308,17 @@ export default function DoctorDetailPage() {
                                             >
                                                 <Trash2 className="h-3.5 w-3.5" />
                                                 Delete
+                                            </Button>
+                                        )}
+                                        {canViewAudit && (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => setHistoryOpen(true)}
+                                                className="h-8 gap-1.5 text-xs shadow-xs"
+                                            >
+                                                <History className="h-3.5 w-3.5 text-muted-foreground" />
+                                                History
                                             </Button>
                                         )}
                                     </div>
@@ -811,6 +826,17 @@ export default function DoctorDetailPage() {
                 open={apptDetailsOpen}
                 onOpenChange={setApptDetailsOpen}
             />
+
+            {/* Entity Audit History Drawer (Admin Only) */}
+            {doctor && (
+                <EntityHistoryDrawer
+                    entityType="Doctor"
+                    entityId={doctorId}
+                    entityName={doctor.name}
+                    open={historyOpen}
+                    onOpenChange={setHistoryOpen}
+                />
+            )}
         </>
     );
 }

@@ -21,6 +21,7 @@ import {
     CalendarPlus,
     Plus,
     ExternalLink,
+    History,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -55,6 +56,7 @@ import { BookAppointmentDialog } from "@/components/appointments/book-appointmen
 import { AppointmentDetailsDialog } from "@/components/appointments/appointment-details-dialog";
 import { RecordVisitDialog } from "@/components/visits/record-visit-dialog";
 import { VisitsTimeline } from "@/components/visits/visits-timeline";
+import { EntityHistoryDrawer } from "@/components/audit/entity-history-drawer";
 import type {
     ApiResponse,
     Appointment,
@@ -86,6 +88,7 @@ function PatientDetailContent() {
     const [recordVisitOpen, setRecordVisitOpen] = useState(false);
     const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
     const [appointmentDetailsOpen, setAppointmentDetailsOpen] = useState(false);
+    const [historyOpen, setHistoryOpen] = useState(false);
 
     // Fetch patient detail
     const {
@@ -131,6 +134,7 @@ function PatientDetailContent() {
         targetDoctorId: assignedDoctorId,
         doctorId: user?.doctorId,
     });
+    const canViewAudit = can("audit.view");
 
     // Fetch Appointments for this patient
     const {
@@ -290,6 +294,17 @@ function PatientDetailContent() {
                         >
                             <Trash2 className="h-3.5 w-3.5" />
                             Delete
+                        </Button>
+                    )}
+                    {canViewAudit && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setHistoryOpen(true)}
+                            className="gap-1.5 text-xs h-8"
+                        >
+                            <History className="h-3.5 w-3.5 text-muted-foreground" />
+                            History
                         </Button>
                     )}
                 </div>
@@ -640,6 +655,15 @@ function PatientDetailContent() {
                 patientId={patientId}
                 patientName={patient.name}
                 doctorTimezone={doctorTimezone}
+            />
+
+            {/* Entity Audit History Drawer (Admin Only) */}
+            <EntityHistoryDrawer
+                entityType="Patient"
+                entityId={patientId}
+                entityName={patient?.name}
+                open={historyOpen}
+                onOpenChange={setHistoryOpen}
             />
         </div>
     );
