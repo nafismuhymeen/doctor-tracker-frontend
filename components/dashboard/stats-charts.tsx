@@ -298,3 +298,4 @@ export function StatsCharts({ stats, isLoading }: StatsChartsProps) {
 }
 
 export default StatsCharts;
+
