@@ -60,3 +60,4 @@ test.describe("E2E: Accessibility Audits (@axe-core/playwright)", () => {
     expect(criticalViolations).toEqual([]);
   });
 });
+

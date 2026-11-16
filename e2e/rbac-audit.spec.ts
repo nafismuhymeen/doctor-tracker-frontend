@@ -53,3 +53,4 @@ test.describe("E2E: Role Restrictions and Audit Trail Integrity", () => {
     await expect(failedLoginsBtn).toBeVisible();
   });
 });
+
