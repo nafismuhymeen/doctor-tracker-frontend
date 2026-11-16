@@ -1,3 +1,10 @@
+# Docker Compose for Doctor Tracker (Production-like Stack)
+# Note on Next.js build-time inlining:
+# Next.js 16 inlines NEXT_PUBLIC_* variables and resolves next.config.ts rewrites
+# during the static build phase ('yarn build'). Setting these variables purely in
+# container 'environment' at runtime will NOT affect client bundles or rewrite destinations.
+# Therefore, they are passed as 'build.args' to the Docker builder stage.
+
 services:
   mongo:
     image: mongo:7-jammy
@@ -32,13 +39,15 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=5000
+      - CLIENT_URLS=http://localhost:3000
       - MONGODB_URI=mongodb://mongo:27017/doctor_tracker?replicaSet=rs0
-      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:-change_in_production_access_secret_1234567890}
-      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-change_in_production_refresh_secret_1234567890}
+      - JWT_SECRET=${JWT_SECRET:-${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET is required}}
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET is required}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET is required}
       - COOKIE_SAME_SITE=lax
       - CORS_ORIGIN=http://localhost:3000
-    ports:
-      - "5000:5000"
+    # No public port mapping for the API: internal container-to-container network only.
+    # All frontend-to-backend traffic is proxied through the Next.js same-origin rewrite proxy.
     depends_on:
       mongo:
         condition: service_healthy
@@ -47,16 +56,22 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        # Build arguments inlined during 'yarn build' for Next.js rewrites and client variables
+        BACKEND_INTERNAL_URL: ${BACKEND_INTERNAL_URL:-http://api:5000}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api/v1}
+        NEXT_PUBLIC_DEMO_EMAIL: ${NEXT_PUBLIC_DEMO_EMAIL:-viewer@clinic.com}
+        NEXT_PUBLIC_DEMO_PASSWORD: ${NEXT_PUBLIC_DEMO_PASSWORD:-Password123!}
     container_name: doctor_tracker_web
     restart: unless-stopped
     environment:
       - NODE_ENV=production
       - PORT=3000
       - HOSTNAME=0.0.0.0
-      - BACKEND_INTERNAL_URL=http://api:5000
-      - NEXT_PUBLIC_API_URL=/api/v1
-      - NEXT_PUBLIC_DEMO_EMAIL=${DEMO_VIEWER_EMAIL:-viewer@example.com}
-      - NEXT_PUBLIC_DEMO_PASSWORD=${DEMO_VIEWER_PASSWORD:-Viewer12345!}
+      - BACKEND_INTERNAL_URL=${BACKEND_INTERNAL_URL:-http://api:5000}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-/api/v1}
+      - NEXT_PUBLIC_DEMO_EMAIL=${NEXT_PUBLIC_DEMO_EMAIL:-viewer@clinic.com}
+      - NEXT_PUBLIC_DEMO_PASSWORD=${NEXT_PUBLIC_DEMO_PASSWORD:-Password123!}
     ports:
       - "3000:3000"
     depends_on:
@@ -65,4 +80,3 @@ services:
 volumes:
   mongo_data:
     name: doctor_tracker_mongo_data
-

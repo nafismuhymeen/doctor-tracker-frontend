@@ -36,6 +36,7 @@ jobs:
       - name: Build Next.js application (standalone)
         env:
           NEXT_PUBLIC_API_URL: /api/v1
+          BACKEND_INTERNAL_URL: http://localhost:5000
         run: yarn build
 
   e2e:
@@ -53,6 +54,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: nafismuhymeen/doctor-tracker-backend
+          ref: appointment # TODO: change to main after backend appointment branch is merged
           path: backend
 
       - name: Setup Node.js
@@ -65,7 +67,7 @@ jobs:
           cd backend
           docker compose up -d mongo
           # Wait for MongoDB replica set healthcheck
-          until [ $(docker inspect --format='{{json .State.Health.Status}}' doctor_tracker_mongo) == '"healthy"' ]; do
+          until [ "$(docker inspect --format='{{json .State.Health.Status}}' doctor_tracker_mongo 2>/dev/null)" == '"healthy"' ]; do
             echo "Waiting for MongoDB replica set to initialize..."
             sleep 2
           done
@@ -74,22 +76,37 @@ jobs:
         run: |
           cd backend
           yarn install --frozen-lockfile --ignore-engines
+          CLIENT_URLS="http://localhost:3000" \
           MONGODB_URI="mongodb://localhost:27017/doctor_tracker?replicaSet=rs0" \
-          JWT_ACCESS_SECRET="ci_test_access_secret_1234567890" \
-          JWT_REFRESH_SECRET="ci_test_refresh_secret_1234567890" \
+          JWT_SECRET="ci_test_super_secret_jwt_key_at_least_32_chars_long" \
+          JWT_ACCESS_SECRET="ci_test_super_secret_jwt_key_at_least_32_chars_long" \
+          JWT_REFRESH_SECRET="ci_test_super_secret_jwt_key_at_least_32_chars_long" \
+          ACCESS_TOKEN_TTL_MINUTES="1" \
           yarn seed:demo
 
       - name: Start backend API server
         run: |
           cd backend
+          CLIENT_URLS="http://localhost:3000" \
           MONGODB_URI="mongodb://localhost:27017/doctor_tracker?replicaSet=rs0" \
-          JWT_ACCESS_SECRET="ci_test_access_secret_1234567890" \
-          JWT_REFRESH_SECRET="ci_test_refresh_secret_1234567890" \
+          JWT_SECRET="ci_test_super_secret_jwt_key_at_least_32_chars_long" \
+          JWT_ACCESS_SECRET="ci_test_super_secret_jwt_key_at_least_32_chars_long" \
+          JWT_REFRESH_SECRET="ci_test_super_secret_jwt_key_at_least_32_chars_long" \
           PORT=5000 \
+          ACCESS_TOKEN_TTL_MINUTES=1 \
           CORS_ORIGIN="http://localhost:3000" \
           COOKIE_SAME_SITE="lax" \
           nohup yarn dev > backend.log 2>&1 &
-          sleep 5
+
+          echo "Waiting for backend API /api/v1/health..."
+          for i in {1..30}; do
+            if curl -sf http://localhost:5000/api/v1/health | grep -q '"success":true'; then
+              echo "API is healthy and ready!"
+              break
+            fi
+            echo "Waiting for backend API... ($i/30)"
+            sleep 2
+          done
 
       - name: Install frontend dependencies and Playwright browsers
         run: |
@@ -100,13 +117,23 @@ jobs:
       - name: Build and start frontend application
         run: |
           cd frontend
+          NEXT_PUBLIC_API_URL="/api/v1" \
           BACKEND_INTERNAL_URL="http://localhost:5000" \
-          NEXT_PUBLIC_API_URL="http://localhost:5000/api/v1" \
           yarn build
+
+          NEXT_PUBLIC_API_URL="/api/v1" \
           BACKEND_INTERNAL_URL="http://localhost:5000" \
-          NEXT_PUBLIC_API_URL="http://localhost:5000/api/v1" \
           nohup yarn start -p 3000 > frontend.log 2>&1 &
-          sleep 5
+
+          echo "Waiting for frontend server /api/v1/health proxy..."
+          for i in {1..30}; do
+            if curl -sf http://localhost:3000/api/v1/health | grep -q '"success":true'; then
+              echo "Frontend rewrite proxy to backend is operational!"
+              break
+            fi
+            echo "Waiting for frontend proxy... ($i/30)"
+            sleep 2
+          done
 
       - name: Run Playwright E2E and Axe scans
         run: |
@@ -114,10 +141,13 @@ jobs:
           PLAYWRIGHT_BASE_URL="http://localhost:3000" \
           yarn test:e2e
 
-      - name: Upload Playwright report on failure
+      - name: Upload Playwright report and logs on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
-          path: frontend/playwright-report/
+          name: playwright-artifacts
+          path: |
+            frontend/playwright-report/
+            backend/backend.log
+            frontend/frontend.log
           retention-days: 7

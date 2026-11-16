@@ -14,9 +14,19 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# Build arguments needed at build time because Next.js inlines NEXT_PUBLIC_*
+# variables into client JS and evaluates next.config.ts rewrites during build.
+ARG BACKEND_INTERNAL_URL=http://api:5000
+ARG NEXT_PUBLIC_API_URL=/api/v1
+ARG NEXT_PUBLIC_DEMO_EMAIL=viewer@clinic.com
+ARG NEXT_PUBLIC_DEMO_PASSWORD=Password123!
+
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
-ENV NEXT_PUBLIC_API_URL=/api/v1
+ENV BACKEND_INTERNAL_URL=$BACKEND_INTERNAL_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_DEMO_EMAIL=$NEXT_PUBLIC_DEMO_EMAIL
+ENV NEXT_PUBLIC_DEMO_PASSWORD=$NEXT_PUBLIC_DEMO_PASSWORD
 
 RUN yarn build
 
@@ -42,5 +52,8 @@ USER nextjs
 
 EXPOSE 3000
 
-CMD ["node", "server.js"]
+# Container healthcheck: verify Node server responds on port 3000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD node -e "fetch('http://localhost:3000/').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
 
+CMD ["node", "server.js"]
