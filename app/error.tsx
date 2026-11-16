@@ -13,10 +13,15 @@ export default function RootError({
     error: Error & { digest?: string };
     reset: () => void;
 }) {
+    const isDev = process.env.NODE_ENV !== "production";
+
     useEffect(() => {
-        // Log to telemetry or error reporting service if configured
-        console.error("Root error boundary caught error:", error);
-    }, [error]);
+        if (isDev) {
+            console.error("Root error boundary caught error:", error);
+        } else {
+            console.error("Root error boundary caught error with digest:", error.digest || "unknown");
+        }
+    }, [error, isDev]);
 
     return (
         <div className="min-h-screen flex items-center justify-center p-4 bg-background text-foreground">
@@ -32,7 +37,14 @@ export default function RootError({
                 </CardHeader>
                 <CardContent className="space-y-3 pt-2">
                     <div className="rounded-lg bg-muted/50 p-3 text-xs font-mono text-muted-foreground break-all border">
-                        {error.message || "An unexpected runtime error occurred."}
+                        {isDev
+                            ? error.message || "An unexpected runtime error occurred."
+                            : "An unexpected error occurred. Please try again later."}
+                        {!isDev && error.digest && (
+                            <div className="mt-1 text-[11px] opacity-75">
+                                Error reference: {error.digest}
+                            </div>
+                        )}
                     </div>
                 </CardContent>
                 <CardFooter className="flex flex-col sm:flex-row items-center gap-2 pt-2">
@@ -63,4 +75,3 @@ export default function RootError({
         </div>
     );
 }
-

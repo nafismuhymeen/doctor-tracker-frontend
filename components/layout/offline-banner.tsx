@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { RefreshCw, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { API_URL } from "@/lib/api";
 
 export function OfflineBanner() {
     const [isOnline, setIsOnline] = useState<boolean>(() =>
@@ -26,11 +27,12 @@ export function OfflineBanner() {
     const checkConnection = async () => {
         setIsChecking(true);
         try {
-            // Test reachability
-            const res = await fetch("/api/v1/auth/me", { method: "HEAD", cache: "no-store" }).catch(() => null);
-            if (res || window.navigator.onLine) {
-                setIsOnline(true);
-            }
+            // Any HTTP response (including 401 Unauthorized) means the API endpoint is reachable.
+            await fetch(`${API_URL}/auth/me`, { method: "HEAD", cache: "no-store" });
+            setIsOnline(true);
+        } catch {
+            // Thrown fetch error (TypeError/network fail) indicates server is unreachable.
+            setIsOnline(false);
         } finally {
             setIsChecking(false);
         }

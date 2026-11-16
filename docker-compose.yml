@@ -1,0 +1,67 @@
+services:
+  mongo:
+    image: mongo:7-jammy
+    container_name: doctor_tracker_mongo
+    restart: unless-stopped
+    command: ["--replSet", "rs0", "--bind_ip_all", "--port", "27017"]
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: >
+        mongosh --port 27017 --eval '
+          try {
+            rs.status().ok;
+          } catch (e) {
+            rs.initiate({
+              _id: "rs0",
+              members: [{ _id: 0, host: "mongo:27017" }]
+            }).ok;
+          }
+        '
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  api:
+    build:
+      context: ../doctor-tracker-backend
+      dockerfile: Dockerfile
+    container_name: doctor_tracker_api
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - MONGODB_URI=mongodb://mongo:27017/doctor_tracker?replicaSet=rs0
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:-change_in_production_access_secret_1234567890}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-change_in_production_refresh_secret_1234567890}
+      - COOKIE_SAME_SITE=lax
+      - CORS_ORIGIN=http://localhost:3000
+    ports:
+      - "5000:5000"
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: doctor_tracker_web
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+      - BACKEND_INTERNAL_URL=http://api:5000
+      - NEXT_PUBLIC_API_URL=/api/v1
+      - NEXT_PUBLIC_DEMO_EMAIL=${DEMO_VIEWER_EMAIL:-viewer@example.com}
+      - NEXT_PUBLIC_DEMO_PASSWORD=${DEMO_VIEWER_PASSWORD:-Viewer12345!}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+volumes:
+  mongo_data:
+    name: doctor_tracker_mongo_data

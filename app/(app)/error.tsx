@@ -13,9 +13,15 @@ export default function AppRouteError({
     error: Error & { digest?: string };
     reset: () => void;
 }) {
+    const isDev = process.env.NODE_ENV !== "production";
+
     useEffect(() => {
-        console.error("Authenticated area caught error:", error);
-    }, [error]);
+        if (isDev) {
+            console.error("Authenticated area caught error:", error);
+        } else {
+            console.error("Authenticated area caught error with digest:", error.digest || "unknown");
+        }
+    }, [error, isDev]);
 
     return (
         <div className="flex min-h-[60vh] items-center justify-center p-4">
@@ -31,7 +37,14 @@ export default function AppRouteError({
                 </CardHeader>
                 <CardContent className="pt-2">
                     <div className="rounded-lg bg-muted/40 p-3 text-xs font-mono text-muted-foreground break-all border text-left">
-                        {error.message || "An unexpected error occurred."}
+                        {isDev
+                            ? error.message || "An unexpected runtime error occurred."
+                            : "An unexpected error occurred. Please try again."}
+                        {!isDev && error.digest && (
+                            <div className="mt-1 text-[11px] opacity-75">
+                                Error reference: {error.digest}
+                            </div>
+                        )}
                     </div>
                 </CardContent>
                 <CardFooter className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-2">
@@ -62,4 +75,3 @@ export default function AppRouteError({
         </div>
     );
 }
-

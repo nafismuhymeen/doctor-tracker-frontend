@@ -10,9 +10,15 @@ export default function GlobalError({
     error: Error & { digest?: string };
     reset: () => void;
 }) {
+    const isDev = process.env.NODE_ENV !== "production";
+
     useEffect(() => {
-        console.error("Global error caught:", error);
-    }, [error]);
+        if (isDev) {
+            console.error("Global error caught:", error);
+        } else {
+            console.error("Global error caught with digest:", error.digest || "unknown");
+        }
+    }, [error, isDev]);
 
     return (
         <html lang="en">
@@ -28,7 +34,14 @@ export default function GlobalError({
                         </p>
                     </div>
                     <div className="rounded-lg bg-gray-100 p-3 text-xs font-mono text-gray-600 break-all text-left">
-                        {error.message || "A fatal layout or initialization error occurred."}
+                        {isDev
+                            ? error.message || "A fatal layout or initialization error occurred."
+                            : "A critical system error occurred. Please reload the application."}
+                        {!isDev && error.digest && (
+                            <div className="mt-1 text-[11px] text-gray-400">
+                                Error reference: {error.digest}
+                            </div>
+                        )}
                     </div>
                     <button
                         type="button"
@@ -43,4 +56,3 @@ export default function GlobalError({
         </html>
     );
 }
-

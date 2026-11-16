@@ -7,10 +7,11 @@ import { OfflineBanner } from "@/components/layout/offline-banner";
 import { CommandPalette } from "@/components/layout/command-palette";
 import RootError from "@/app/error";
 import AppRouteError from "@/app/(app)/error";
+import GlobalError from "@/app/global-error";
 import NotFound from "@/app/not-found";
 import AppNotFound from "@/app/(app)/not-found";
 import * as AuthProviderModule from "@/components/providers/auth-provider";
-import { api } from "@/lib/api";
+import { api, API_URL } from "@/lib/api";
 
 const mockRouterPush = vi.fn();
 vi.mock("next/navigation", () => ({
@@ -22,11 +23,15 @@ vi.mock("next/navigation", () => ({
     useSearchParams: () => new URLSearchParams(),
 }));
 
-vi.mock("@/lib/api", () => ({
-    api: {
-        get: vi.fn(),
-    },
-}));
+vi.mock("@/lib/api", async () => {
+    const actual = await vi.importActual<typeof import("@/lib/api")>("@/lib/api");
+    return {
+        ...actual,
+        api: {
+            get: vi.fn(),
+        },
+    };
+});
 
 function createTestClient() {
     return new QueryClient({
@@ -38,7 +43,7 @@ function renderWithClient(ui: React.ReactElement, client = createTestClient()) {
     return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
 }
 
-describe("Phase F6-A: Robustness and UX Polish", () => {
+describe("Phase F6-A & F6-B: Robustness and UX Polish", () => {
     beforeEach(() => {
         vi.clearAllMocks();
     });
@@ -67,6 +72,62 @@ describe("Phase F6-A: Robustness and UX Polish", () => {
             });
 
             expect(screen.queryByRole("status")).not.toBeInTheDocument();
+        });
+
+        it("checkConnection treats any HTTP response (e.g. 401) as reachable", async () => {
+            const originalFetch = global.fetch;
+            global.fetch = vi.fn().mockResolvedValue({
+                status: 401,
+                ok: false,
+            });
+
+            render(<OfflineBanner />);
+
+            // Switch to offline
+            act(() => {
+                window.dispatchEvent(new Event("offline"));
+            });
+            expect(screen.getByRole("status")).toBeInTheDocument();
+
+            // Click Reconnect button
+            const reconnectBtn = screen.getByRole("button", { name: /reconnect/i });
+            await act(async () => {
+                fireEvent.click(reconnectBtn);
+            });
+
+            expect(global.fetch).toHaveBeenCalledWith(
+                `${API_URL}/auth/me`,
+                expect.objectContaining({ method: "HEAD" })
+            );
+
+            // Banner should disappear because server responded (reachable)
+            expect(screen.queryByRole("status")).not.toBeInTheDocument();
+
+            global.fetch = originalFetch;
+        });
+
+        it("checkConnection treats thrown network failure as unreachable", async () => {
+            const originalFetch = global.fetch;
+            global.fetch = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
+
+            render(<OfflineBanner />);
+
+            // Switch to offline
+            act(() => {
+                window.dispatchEvent(new Event("offline"));
+            });
+            expect(screen.getByRole("status")).toBeInTheDocument();
+
+            // Click Reconnect button
+            const reconnectBtn = screen.getByRole("button", { name: /reconnect/i });
+            await act(async () => {
+                fireEvent.click(reconnectBtn);
+            });
+
+            // Banner remains visible because network failed
+            expect(screen.getByRole("status")).toBeInTheDocument();
+
+            global.fetch = originalFetch;
         });
     });
 
@@ -191,7 +252,9 @@ describe("Phase F6-A: Robustness and UX Polish", () => {
     });
 
     describe("3. Error Boundaries & Not-Found Pages", () => {
-        it("RootError renders error message and provides retry action", () => {
+        it("RootError renders error message in development and provides retry action", () => {
+            vi.stubEnv("NODE_ENV", "development");
+
             const resetFn = vi.fn();
             render(<RootError error={new Error("Network breakdown")} reset={resetFn} />);
 
@@ -201,17 +264,54 @@ describe("Phase F6-A: Robustness and UX Polish", () => {
             const retryBtn = screen.getByRole("button", { name: /try again/i });
             fireEvent.click(retryBtn);
             expect(resetFn).toHaveBeenCalled();
+
+            vi.unstubAllEnvs();
         });
 
-        it("AppRouteError renders in-app failure card with retry action", () => {
-            const resetFn = vi.fn();
-            render(<AppRouteError error={new Error("Failed query")} reset={resetFn} />);
+        it("RootError masks error message in production and renders digest", () => {
+            vi.stubEnv("NODE_ENV", "production");
 
-            expect(screen.getByText(/failed to load content/i)).toBeInTheDocument();
-            expect(screen.getByText(/failed query/i)).toBeInTheDocument();
+            const err = new Error("Database password leaked in message") as Error & { digest?: string };
+            err.digest = "DIGEST-789";
 
-            fireEvent.click(screen.getByRole("button", { name: /retry/i }));
-            expect(resetFn).toHaveBeenCalled();
+            render(<RootError error={err} reset={vi.fn()} />);
+
+            // Sensitive message is masked
+            expect(screen.queryByText(/database password/i)).not.toBeInTheDocument();
+            expect(screen.getByText(/an unexpected error occurred/i)).toBeInTheDocument();
+            expect(screen.getByText(/error reference: DIGEST-789/i)).toBeInTheDocument();
+
+            vi.unstubAllEnvs();
+        });
+
+        it("AppRouteError masks message in production and renders digest", () => {
+            vi.stubEnv("NODE_ENV", "production");
+
+            const err = new Error("Internal secret query") as Error & { digest?: string };
+            err.digest = "DIGEST-APP-123";
+
+            render(<AppRouteError error={err} reset={vi.fn()} />);
+
+            expect(screen.queryByText(/internal secret/i)).not.toBeInTheDocument();
+            expect(screen.getByText(/an unexpected error occurred/i)).toBeInTheDocument();
+            expect(screen.getByText(/error reference: DIGEST-APP-123/i)).toBeInTheDocument();
+
+            vi.unstubAllEnvs();
+        });
+
+        it("GlobalError masks message in production and renders digest", () => {
+            vi.stubEnv("NODE_ENV", "production");
+
+            const err = new Error("Layout root fail") as Error & { digest?: string };
+            err.digest = "DIGEST-GLOB-456";
+
+            render(<GlobalError error={err} reset={vi.fn()} />);
+
+            expect(screen.queryByText(/layout root fail/i)).not.toBeInTheDocument();
+            expect(screen.getByRole("heading", { name: /critical system error/i })).toBeInTheDocument();
+            expect(screen.getByText(/error reference: DIGEST-GLOB-456/i)).toBeInTheDocument();
+
+            vi.unstubAllEnvs();
         });
 
         it("NotFound renders 404 message and home link", () => {
