@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import {
     format,
@@ -40,10 +41,30 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AppointmentsCalendar } from "@/components/appointments/appointments-calendar";
+import { Skeleton } from "@/components/ui/skeleton";
 import { AppointmentsListTable } from "@/components/appointments/appointments-list-table";
 import { BookAppointmentDialog } from "@/components/appointments/book-appointment-dialog";
 import { AppointmentDetailsDialog } from "@/components/appointments/appointment-details-dialog";
+
+const AppointmentsCalendar = dynamic(
+    () => import("@/components/appointments/appointments-calendar").then((mod) => mod.AppointmentsCalendar),
+    {
+        loading: () => (
+            <div className="rounded-xl border bg-card p-6 shadow-xs space-y-4">
+                <div className="flex items-center justify-between border-b pb-4">
+                    <Skeleton className="h-6 w-48" />
+                    <Skeleton className="h-8 w-24" />
+                </div>
+                <div className="grid grid-cols-7 gap-2">
+                    {Array.from({ length: 7 }).map((_, i) => (
+                        <Skeleton key={i} className="h-10 w-full" />
+                    ))}
+                </div>
+                <Skeleton className="h-96 w-full rounded-lg" />
+            </div>
+        ),
+    }
+);
 import type {
     ApiResponse,
     Appointment,

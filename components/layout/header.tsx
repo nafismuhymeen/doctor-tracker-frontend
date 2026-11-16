@@ -6,6 +6,7 @@ import {
     LogOut,
     KeyRound,
     ShieldAlert,
+    Search,
 } from "lucide-react";
 import { useAuth } from "@/components/providers/auth-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -71,11 +72,43 @@ export function Header() {
                 <span className="font-semibold text-sm">Doctor Tracker</span>
             </div>
 
-            {/* Empty spacer on desktop */}
-            <div className="hidden md:block" />
+            {/* Center / Command Palette Search Trigger */}
+            <div className="flex-1 max-w-sm mx-2 sm:mx-4 hidden sm:block">
+                <button
+                    type="button"
+                    onClick={() => {
+                        window.dispatchEvent(
+                            new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true })
+                        );
+                    }}
+                    className="flex w-full items-center justify-between gap-2 rounded-lg border bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted/70 hover:text-foreground transition-colors shadow-2xs"
+                >
+                    <span className="flex items-center gap-2">
+                        <Search className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span>Search or jump to...</span>
+                    </span>
+                    <kbd className="inline-flex items-center gap-0.5 rounded border bg-background px-1.5 py-0.5 text-[10px] font-mono shadow-xs">
+                        ⌘K
+                    </kbd>
+                </button>
+            </div>
 
             {/* Right side controls */}
             <div className="flex items-center gap-2 sm:gap-4">
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                        window.dispatchEvent(
+                            new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true })
+                        );
+                    }}
+                    className="h-9 w-9 sm:hidden text-muted-foreground hover:text-foreground"
+                    aria-label="Open command palette"
+                >
+                    <Search className="h-4 w-4" />
+                </Button>
+
                 <ThemeToggle />
 
                 {user && (
