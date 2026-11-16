@@ -130,11 +130,22 @@ export function can(
             return false;
 
         case "visits.create":
-        case "visits.edit":
-        case "visits.addendum":
             if (role === "doctor") {
                 if (ctx?.targetDoctorId && ctx?.doctorId) {
                     return ctx.targetDoctorId === ctx.doctorId;
+                }
+                return true;
+            }
+            return false;
+
+        case "visits.edit":
+        case "visits.addendum":
+            if (role === "doctor") {
+                if (ctx?.targetDoctorId && ctx?.doctorId && ctx.targetDoctorId !== ctx.doctorId) {
+                    return false;
+                }
+                if (ctx?.authorDoctorId && ctx?.doctorId) {
+                    return ctx.authorDoctorId === ctx.doctorId;
                 }
                 return true;
             }

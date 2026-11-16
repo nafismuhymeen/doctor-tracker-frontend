@@ -615,9 +615,12 @@ export default function DoctorDetailPage() {
                                     {patients.map((patient: Patient) => (
                                         <TableRow key={patient._id}>
                                             <TableCell>
-                                                <div className="font-medium text-foreground">
+                                                <Link
+                                                    href={`/patients/${patient._id}`}
+                                                    className="font-medium text-foreground hover:text-primary hover:underline"
+                                                >
                                                     {patient.name}
-                                                </div>
+                                                </Link>
                                             </TableCell>
                                             <TableCell>
                                                 <Badge variant="info" className="font-normal text-xs">

@@ -31,6 +31,8 @@ export const qk = {
     },
     visits: {
         all: () => ["visits"] as const,
+        patient: (patientId: string, params?: string) =>
+            ["patients", "visits", patientId, params ?? ""] as const,
         detail: (id: string) => ["visits", "detail", id] as const,
     },
     dashboard: {

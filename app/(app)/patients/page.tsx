@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     useReactTable,
@@ -138,9 +139,12 @@ export default function PatientsPage() {
             columnHelper.accessor("name", {
                 header: "Patient Name",
                 cell: (info) => (
-                    <div className="font-medium text-foreground">
+                    <Link
+                        href={`/patients/${info.row.original._id}`}
+                        className="font-medium text-foreground hover:text-primary hover:underline"
+                    >
                         {info.getValue()}
-                    </div>
+                    </Link>
                 ),
             }),
             columnHelper.display({

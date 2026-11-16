@@ -35,6 +35,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CancelAppointmentDialog } from "@/components/appointments/cancel-appointment-dialog";
 import { RescheduleDialog } from "@/components/appointments/reschedule-dialog";
+import { RecordVisitDialog } from "@/components/visits/record-visit-dialog";
 import type { Appointment, AppointmentStatus, Doctor, Patient } from "@/types";
 
 interface AppointmentDetailsDialogProps {
@@ -48,11 +49,12 @@ export function AppointmentDetailsDialog({
     open,
     onOpenChange,
 }: AppointmentDetailsDialogProps) {
-    const { role } = useAuth();
+    const { user, role } = useAuth();
     const queryClient = useQueryClient();
 
     const [cancelOpen, setCancelOpen] = useState(false);
     const [rescheduleOpen, setRescheduleOpen] = useState(false);
+    const [recordVisitOpen, setRecordVisitOpen] = useState(false);
     const [mountedAt] = useState(() => Date.now());
 
     const isViewer = role === "viewer";
@@ -118,6 +120,15 @@ export function AppointmentDetailsDialog({
         appointment.status === "completed" ||
         appointment.status === "cancelled" ||
         appointment.status === "no_show";
+
+    const doctorId = doctor?._id || (typeof appointment.doctorId === "string" ? appointment.doctorId : "");
+    const patientId = patient?._id || (typeof appointment.patientId === "string" ? appointment.patientId : "");
+    const isTreatingDoctor = role === "doctor" && user?.doctorId === doctorId;
+    const canRecordVisit =
+        isTreatingDoctor &&
+        !appointment.visitId &&
+        (appointment.status === "completed" || (appointment.status === "scheduled" && isPastAppointment));
+    const hasVisit = !!appointment.visitId;
 
     const formatInTimezone = (dateStr: string) => {
         try {
@@ -300,6 +311,46 @@ export function AppointmentDetailsDialog({
                             </div>
                         )}
 
+                        {/* Clinical Visit Action / Link */}
+                        {(hasVisit || canRecordVisit) && (
+                            <div className="rounded-lg border bg-primary/5 p-3 flex items-center justify-between gap-3">
+                                <div className="space-y-0.5">
+                                    <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                                        <FileText className="h-3.5 w-3.5 text-primary" />
+                                        Clinical Visit
+                                    </span>
+                                    <p className="text-[11px] text-muted-foreground">
+                                        {hasVisit
+                                            ? "A clinical visit record is attached to this appointment."
+                                            : "Record clinical examination notes and treatment."}
+                                    </p>
+                                </div>
+                                {hasVisit ? (
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        asChild
+                                        className="text-xs h-8 gap-1 shrink-0"
+                                        onClick={() => onOpenChange(false)}
+                                    >
+                                        <Link href={`/patients/${patientId}?tab=visits`}>
+                                            View Visit
+                                            <ArrowUpRight className="h-3 w-3" />
+                                        </Link>
+                                    </Button>
+                                ) : (
+                                    <Button
+                                        size="sm"
+                                        onClick={() => setRecordVisitOpen(true)}
+                                        className="text-xs h-8 gap-1 shrink-0"
+                                    >
+                                        <FileText className="h-3.5 w-3.5" />
+                                        Record Visit
+                                    </Button>
+                                )}
+                            </div>
+                        )}
+
                         {/* Future Appointment Status Warning if trying to complete */}
                         {!isTerminalStatus && !isPastAppointment && !isViewer && (
                             <div className="rounded-lg border border-blue-200/60 bg-blue-50/50 p-2.5 text-xs text-blue-900 dark:border-blue-950 dark:bg-blue-950/20 dark:text-blue-200">
@@ -379,6 +430,23 @@ export function AppointmentDetailsDialog({
                 onOpenChange={setRescheduleOpen}
                 onRescheduled={() => onOpenChange(false)}
             />
+
+            {/* Record Visit Dialog */}
+            {patientId && (
+                <RecordVisitDialog
+                    open={recordVisitOpen}
+                    onOpenChange={setRecordVisitOpen}
+                    patientId={patientId}
+                    patientName={patientName}
+                    doctorTimezone={doctorTimezone}
+                    appointmentId={appointment._id}
+                    onSuccess={() => {
+                        onOpenChange(false);
+                        queryClient.invalidateQueries({ queryKey: qk.appointments.all() });
+                        queryClient.invalidateQueries({ queryKey: qk.dashboard.appointments() });
+                    }}
+                />
+            )}
         </>
     );
 }

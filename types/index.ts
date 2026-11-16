@@ -91,8 +91,9 @@ export interface Vitals {
 }
 
 export interface Addendum {
+    _id?: string;
     text: string;
-    by: string;
+    by: string | { _id?: string; name: string; email?: string; role?: string };
     at: string;
 }
 
@@ -107,8 +108,9 @@ export interface Visit {
     notes: string;
     vitals?: Vitals;
     prescriptions?: Prescription[];
+    followUpDate?: string | null;
     addenda?: Addendum[];
-    createdBy?: string;
+    createdBy?: string | { _id?: string; name: string; email?: string; role?: string };
     createdAt: string;
     updatedAt?: string;
 }

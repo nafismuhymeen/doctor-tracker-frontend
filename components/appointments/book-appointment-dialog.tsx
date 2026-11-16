@@ -51,6 +51,7 @@ interface BookAppointmentDialogProps {
     open?: boolean;
     onOpenChange?: (open: boolean) => void;
     initialDoctorId?: string;
+    initialPatientId?: string;
     trigger?: React.ReactNode;
 }
 
@@ -58,6 +59,7 @@ export function BookAppointmentDialog({
     open: controlledOpen,
     onOpenChange: setControlledOpen,
     initialDoctorId,
+    initialPatientId,
     trigger,
 }: BookAppointmentDialogProps) {
     const { user, role } = useAuth();
@@ -105,7 +107,7 @@ export function BookAppointmentDialog({
         getDoctorTodayStr(activeDoctor?.timezone || "UTC")
     );
     const [selectedSlot, setSelectedSlot] = useState<AvailabilitySlot | null>(null);
-    const [selectedPatientId, setSelectedPatientId] = useState<string>("");
+    const [selectedPatientId, setSelectedPatientId] = useState<string>(() => initialPatientId || "");
     const [reason, setReason] = useState<string>("");
     const [patientSearch, setPatientSearch] = useState<string>("");
 
@@ -123,6 +125,9 @@ export function BookAppointmentDialog({
         if (open) {
             setSelectedDate(getDoctorTodayStr(doctorTimezone));
             setSelectedSlot(null);
+            if (initialPatientId) {
+                setSelectedPatientId(initialPatientId);
+            }
         }
     }
 
@@ -130,7 +135,7 @@ export function BookAppointmentDialog({
         setSelectedDoctorIdOverride(null);
         setSelectedDate(getDoctorTodayStr(doctorTimezone));
         setSelectedSlot(null);
-        setSelectedPatientId("");
+        setSelectedPatientId(initialPatientId || "");
         setReason("");
         setPatientSearch("");
     };
