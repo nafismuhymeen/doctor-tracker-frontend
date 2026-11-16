@@ -1,5 +1,11 @@
 import * as z from "zod";
 
+/**
+ * Maximum duration (in hours) after visit creation during which the author doctor can edit clinical notes.
+ * Note: The server remains the authoritative enforcement point (env.VISIT_EDIT_WINDOW_HOURS).
+ */
+export const VISIT_EDIT_WINDOW_HOURS = 24;
+
 const optionalNumberField = (min: number, max: number, minMsg: string, maxMsg: string) =>
     z.preprocess(
         (val) => (val === "" || val === undefined || val === null ? undefined : Number(val)),
@@ -64,7 +70,7 @@ export const createVisitSchema = z.object({
         .array(prescriptionItemSchema)
         .max(20, "Cannot prescribe more than 20 medications per visit")
         .optional(),
-    followUpDate: z.string().nullable().optional(),
+    followUpDate: z.string().optional(),
 });
 
 export const updateVisitSchema = z

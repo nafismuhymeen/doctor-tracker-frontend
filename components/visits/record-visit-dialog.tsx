@@ -368,27 +368,35 @@ export function RecordVisitDialog({
             }
         }
 
-        const rawData = {
-            patientId,
-            appointmentId: appointmentId || undefined,
-            visitDate: visitDateIso,
-            chiefComplaint: chiefComplaint.trim(),
-            diagnosis: diagnosis.trim(),
-            notes: notes.trim(),
-            vitals: hasVitals ? vitalsObj : undefined,
-            prescriptions: prescriptions.length > 0 ? prescriptions : undefined,
-            followUpDate: followUpDateIso,
-        };
-
         // Validate with Zod
         if (isEdit) {
             const editPayload: Record<string, unknown> = {};
             if (chiefComplaint.trim()) editPayload.chiefComplaint = chiefComplaint.trim();
             if (diagnosis.trim()) editPayload.diagnosis = diagnosis.trim();
             if (notes.trim()) editPayload.notes = notes.trim();
-            if (hasVitals) editPayload.vitals = vitalsObj;
-            if (prescriptions.length > 0) editPayload.prescriptions = prescriptions;
-            if (followUpDate) editPayload.followUpDate = followUpDateIso;
+
+            const hadVitalsBefore =
+                !!visitToEdit?.vitals &&
+                Object.values(visitToEdit.vitals).some((v) => v !== undefined && v !== null);
+            if (hasVitals) {
+                editPayload.vitals = vitalsObj;
+            } else if (hadVitalsBefore) {
+                editPayload.vitals = {};
+            }
+
+            const hadPrescriptionsBefore = (visitToEdit?.prescriptions?.length ?? 0) > 0;
+            if (prescriptions.length > 0) {
+                editPayload.prescriptions = prescriptions;
+            } else if (hadPrescriptionsBefore) {
+                editPayload.prescriptions = [];
+            }
+
+            const hadFollowUpBefore = !!visitToEdit?.followUpDate;
+            if (followUpDate && followUpDateIso) {
+                editPayload.followUpDate = followUpDateIso;
+            } else if (hadFollowUpBefore && !followUpDate) {
+                editPayload.followUpDate = null;
+            }
 
             const result = updateVisitSchema.safeParse(editPayload);
             if (!result.success) {
@@ -402,7 +410,30 @@ export function RecordVisitDialog({
             }
             mutation.mutate(result.data);
         } else {
-            const result = createVisitSchema.safeParse(rawData);
+            const createPayload: Record<string, unknown> = {
+                patientId,
+                chiefComplaint: chiefComplaint.trim(),
+                diagnosis: diagnosis.trim(),
+                notes: notes.trim(),
+            };
+            if (appointmentId) {
+                createPayload.appointmentId = appointmentId;
+            }
+            if (visitDateIso) {
+                createPayload.visitDate = visitDateIso;
+            }
+            if (hasVitals) {
+                createPayload.vitals = vitalsObj;
+            }
+            if (prescriptions.length > 0) {
+                createPayload.prescriptions = prescriptions;
+            }
+            // Follow-up date: ONLY include if populated, otherwise OMIT key completely (never null or undefined on create)
+            if (followUpDate && followUpDateIso) {
+                createPayload.followUpDate = followUpDateIso;
+            }
+
+            const result = createVisitSchema.safeParse(createPayload);
             if (!result.success) {
                 const errors: FormFieldErrors = {};
                 result.error.issues.forEach((issue) => {

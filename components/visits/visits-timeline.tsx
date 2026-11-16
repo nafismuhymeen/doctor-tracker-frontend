@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { TZDate } from "@date-fns/tz";
 import { format } from "date-fns";
@@ -22,6 +23,7 @@ import {
 import { api } from "@/lib/api";
 import { qk } from "@/lib/query-keys";
 import { useAuth } from "@/components/providers/auth-provider";
+import { VISIT_EDIT_WINDOW_HOURS } from "@/lib/visit-validation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -53,8 +55,19 @@ export function VisitsTimeline({
     const [page, setPage] = useState(1);
     const limit = 10;
 
-    // Snapshot of client mount time for pure render calculation of remaining hours
-    const [currentTime] = useState(() => Date.now());
+    // Auto-refresh remaining time every minute while mounted
+    const [currentTime, setCurrentTime] = useState(() => Date.now());
+
+    useEffect(() => {
+        const intervalId = setInterval(() => {
+            setCurrentTime(Date.now());
+        }, 60_000);
+        return () => clearInterval(intervalId);
+    }, []);
+
+    // Target visit ID from URL query (?tab=visits&visit=<id>)
+    const searchParams = useSearchParams();
+    const targetVisitId = searchParams?.get("visit");
 
     // Collapsed notes tracking
     const [expandedNotes, setExpandedNotes] = useState<Record<string, boolean>>({});
@@ -84,8 +97,17 @@ export function VisitsTimeline({
     });
 
     const visitsData = visitsResponse?.data;
-    const visits: Visit[] = visitsData?.visits || [];
+    const visits: Visit[] = useMemo(() => visitsData?.visits || [], [visitsData]);
     const pagination = visitsData?.pagination;
+
+    // Scroll to targeted visit if ?tab=visits&visit=<id> is present
+    useEffect(() => {
+        if (!targetVisitId || isLoading || visits.length === 0) return;
+        const targetElement = document.getElementById(`visit-${targetVisitId}`);
+        if (targetElement) {
+            targetElement.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+    }, [targetVisitId, isLoading, visits]);
 
     const toggleNotes = (visitId: string) => {
         setExpandedNotes((prev) => ({
@@ -171,21 +193,28 @@ export function VisitsTimeline({
                         const doctorName = doctorObj?.name || "Treating Doctor";
                         const doctorSpec = doctorObj?.specialization;
 
-                        // Check 24-hour edit window
+                        // Check edit window (VISIT_EDIT_WINDOW_HOURS from lib/visit-validation.ts, server is authoritative)
                         const createdAtTime = new Date(visit.createdAt).getTime();
-                        const elapsedHours = (currentTime - createdAtTime) / (1000 * 60 * 60);
-                        const isWithinEditWindow = elapsedHours < 24;
-                        const remainingHours = Math.max(0, Math.ceil(24 - elapsedHours));
+                        const elapsedMs = currentTime - createdAtTime;
+                        const editWindowMs = VISIT_EDIT_WINDOW_HOURS * 60 * 60 * 1000;
+                        const remainingMs = editWindowMs - elapsedMs;
+                        const isWithinEditWindow = remainingMs > 0;
+
+                        const remainingMinutesTotal = Math.max(1, Math.ceil(remainingMs / (60 * 1000)));
+                        let remainingText = "";
+                        if (remainingMinutesTotal < 60) {
+                            remainingText = `Editable for ${remainingMinutesTotal} more ${
+                                remainingMinutesTotal === 1 ? "minute" : "minutes"
+                            }`;
+                        } else {
+                            const hoursCeil = Math.ceil(remainingMinutesTotal / 60);
+                            remainingText = `Editable for ${hoursCeil} more ${
+                                hoursCeil === 1 ? "hour" : "hours"
+                            }`;
+                        }
 
                         // Determine author/treating doctor permission
                         const visitDoctorId = doctorObj?._id || (typeof visit.doctorId === "string" ? visit.doctorId : "");
-                        const authorDoctorId =
-                            typeof visit.createdBy === "object" && visit.createdBy?._id
-                                ? visit.createdBy._id
-                                : typeof visit.createdBy === "string"
-                                ? visit.createdBy
-                                : visitDoctorId;
-
                         const canEdit =
                             isWithinEditWindow &&
                             can("visits.edit", {
@@ -201,17 +230,34 @@ export function VisitsTimeline({
                         });
 
                         const isNotesExpanded = !!expandedNotes[visit._id];
+                        const isTargeted = targetVisitId === visit._id;
 
                         return (
-                            <div key={visit._id} className="relative group">
+                            <div
+                                key={visit._id}
+                                id={`visit-${visit._id}`}
+                                className="relative group scroll-mt-24"
+                            >
                                 {/* Timeline Dot */}
-                                <div className="absolute -left-[31px] top-1.5 h-3.5 w-3.5 rounded-full border-2 border-background bg-primary ring-4 ring-background" />
+                                <div
+                                    className={`absolute -left-[31px] top-1.5 h-3.5 w-3.5 rounded-full border-2 border-background ${
+                                        isTargeted
+                                            ? "bg-primary ring-4 ring-primary/40"
+                                            : "bg-primary ring-4 ring-background"
+                                    }`}
+                                />
 
-                                <Card className="border shadow-xs transition-shadow hover:shadow-md">
+                                <Card
+                                    className={`border transition-all ${
+                                        isTargeted
+                                            ? "ring-2 ring-primary ring-offset-2 bg-primary/5 shadow-md"
+                                            : "shadow-xs hover:shadow-md"
+                                    }`}
+                                >
                                     <CardHeader className="pb-3 border-b bg-muted/20">
                                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                                             <div className="space-y-0.5">
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex items-center gap-2 flex-wrap">
                                                     <Calendar className="h-4 w-4 text-primary shrink-0" />
                                                     <span className="font-semibold text-sm">
                                                         {formatInDoctorTz(visit.visitDate, "MMMM d, yyyy")}
@@ -220,6 +266,14 @@ export function VisitsTimeline({
                                                         Dr. {doctorName}
                                                         {doctorSpec ? ` (${doctorSpec})` : ""}
                                                     </Badge>
+                                                    {isTargeted && (
+                                                        <Badge
+                                                            variant="default"
+                                                            className="text-[10px] bg-primary text-primary-foreground font-medium"
+                                                        >
+                                                            Selected Visit
+                                                        </Badge>
+                                                    )}
                                                 </div>
                                                 <p className="text-[11px] text-muted-foreground">
                                                     Recorded on {formatInDoctorTz(visit.createdAt, "MMM d, yyyy 'at' h:mm a")} ({doctorTimezone})
@@ -234,7 +288,7 @@ export function VisitsTimeline({
                                                         className="text-[11px] bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20"
                                                     >
                                                         <Clock className="h-3 w-3 mr-1" />
-                                                        Editable for {remainingHours} more {remainingHours === 1 ? "hour" : "hours"}
+                                                        {remainingText}
                                                     </Badge>
                                                 )}
 

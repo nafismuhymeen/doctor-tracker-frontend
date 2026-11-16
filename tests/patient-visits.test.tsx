@@ -13,6 +13,7 @@ import {
     prescriptionItemSchema,
     createVisitSchema,
     createAddendumSchema,
+    VISIT_EDIT_WINDOW_HOURS,
 } from "@/lib/visit-validation";
 import PatientDetailPage from "@/app/(app)/patients/[id]/page";
 import { VisitsTimeline } from "@/components/visits/visits-timeline";
@@ -606,6 +607,292 @@ describe("Phase F4: Patient detail and clinical visits", () => {
             expect(visitDateInput.value).toBe("2026-11-16");
 
             vi.useRealTimers();
+        });
+    });
+
+    describe("8. Review Findings: Payload, Edit Window, & Target Link", () => {
+        it("omits followUpDate key completely when creating a visit with no follow-up date", async () => {
+            mockAuth("doctor", "doc-1");
+
+            let capturedPayload: unknown = null;
+            vi.mocked(api.post).mockImplementation((url: string, body: unknown) => {
+                if (url === "/visits") {
+                    capturedPayload = body;
+                    return Promise.resolve({
+                        data: {
+                            visit: {
+                                _id: "v-new",
+                                patientId: "patient-1",
+                                doctorId: mockDoctor,
+                                visitDate: "2026-11-16T12:00:00.000Z",
+                                chiefComplaint: "Fever",
+                                diagnosis: "Viral fever",
+                                notes: "Fluids and rest",
+                                createdAt: new Date().toISOString(),
+                            },
+                        },
+                    });
+                }
+                return Promise.resolve({ data: {} });
+            });
+
+            renderWithClient(
+                <RecordVisitDialog
+                    open={true}
+                    onOpenChange={vi.fn()}
+                    patientId="patient-1"
+                    doctorTimezone="Asia/Dhaka"
+                />
+            );
+
+            fireEvent.change(screen.getByLabelText(/chief complaint/i), {
+                target: { value: "Fever and headache" },
+            });
+            fireEvent.change(screen.getByLabelText(/diagnosis/i), {
+                target: { value: "Viral syndrome" },
+            });
+            fireEvent.change(screen.getByLabelText(/clinical notes/i), {
+                target: { value: "Adequate hydration and paracetamol recommended" },
+            });
+
+            // Ensure follow-up date input is empty
+            const followUpInput = screen.getByLabelText(/follow-up date/i) as HTMLInputElement;
+            expect(followUpInput.value).toBe("");
+
+            fireEvent.click(screen.getByRole("button", { name: /record clinical visit/i }));
+
+            await waitFor(() => {
+                expect(capturedPayload).not.toBeNull();
+            });
+
+            // Assert payload does NOT have followUpDate key at all
+            expect(capturedPayload).toBeDefined();
+            expect(Object.prototype.hasOwnProperty.call(capturedPayload, "followUpDate")).toBe(false);
+            expect("followUpDate" in (capturedPayload as Record<string, unknown>)).toBe(false);
+        });
+
+        it("sends followUpDate: null, prescriptions: [], and vitals: {} when cleared in edit mode", async () => {
+            mockAuth("doctor", "doc-1");
+
+            const existingVisit: Visit = {
+                _id: "v-edit-cleared",
+                patientId: "patient-1",
+                doctorId: mockDoctor,
+                visitDate: "2026-11-15T12:00:00.000Z",
+                chiefComplaint: "Allergies",
+                diagnosis: "Rhinitis",
+                notes: "Antihistamine prescribed",
+                followUpDate: "2026-11-20T12:00:00.000Z",
+                vitals: {
+                    bpSystolic: 120,
+                    bpDiastolic: 80,
+                    heartRate: 72,
+                    temperatureC: 37,
+                    weightKg: 68,
+                },
+                prescriptions: [
+                    {
+                        drug: "Cetirizine",
+                        dose: "10mg",
+                        frequency: "Once daily",
+                        durationDays: 5,
+                    },
+                ],
+                createdBy: "u-1",
+                createdAt: new Date().toISOString(),
+            };
+
+            let capturedPatchPayload: unknown = null;
+            vi.mocked(api.patch).mockImplementation((url: string, body: unknown) => {
+                if (url === "/visits/v-edit-cleared") {
+                    capturedPatchPayload = body;
+                    return Promise.resolve({
+                        data: {
+                            visit: {
+                                ...existingVisit,
+                                followUpDate: null,
+                                vitals: {},
+                                prescriptions: [],
+                            },
+                        },
+                    });
+                }
+                return Promise.resolve({ data: {} });
+            });
+
+            renderWithClient(
+                <RecordVisitDialog
+                    open={true}
+                    onOpenChange={vi.fn()}
+                    patientId="patient-1"
+                    doctorTimezone="Asia/Dhaka"
+                    visitToEdit={existingVisit}
+                />
+            );
+
+            // 1. Clear followUpDate input
+            const followUpInput = screen.getByLabelText(/follow-up date/i) as HTMLInputElement;
+            fireEvent.change(followUpInput, { target: { value: "" } });
+
+            // 2. Clear all vitals inputs
+            fireEvent.change(screen.getByLabelText(/bp systolic/i), { target: { value: "" } });
+            fireEvent.change(screen.getByLabelText(/bp diastolic/i), { target: { value: "" } });
+            fireEvent.change(screen.getByLabelText(/heart rate/i), { target: { value: "" } });
+            fireEvent.change(screen.getByLabelText(/temperature/i), { target: { value: "" } });
+            fireEvent.change(screen.getByLabelText(/weight/i), { target: { value: "" } });
+
+            // 3. Remove the prescription row
+            const removePrescriptionBtn = screen.getByRole("button", { name: "" }); // trash icon button inside prescription row
+            fireEvent.click(removePrescriptionBtn);
+
+            // Submit update
+            fireEvent.click(screen.getByRole("button", { name: /update visit/i }));
+
+            await waitFor(() => {
+                expect(capturedPatchPayload).not.toBeNull();
+            });
+
+            const patch = capturedPatchPayload as Record<string, unknown>;
+            expect(patch.followUpDate).toBeNull();
+            expect(patch.vitals).toEqual({});
+            expect(patch.prescriptions).toEqual([]);
+        });
+
+        it("names the 24h edit window constant in lib/visit-validation.ts", () => {
+            expect(VISIT_EDIT_WINDOW_HOURS).toBe(24);
+        });
+
+        it("displays minutes remaining when edit window is under one hour", async () => {
+            mockAuth("doctor", "doc-1");
+
+            // Visit created 23 hours and 20 minutes ago (40 minutes remaining)
+            const remainingMinutes = 40;
+            const createdAtTime = new Date(
+                Date.now() - (24 * 60 - remainingMinutes) * 60 * 1000
+            ).toISOString();
+
+            const mockVisitUnderHour: Visit = {
+                _id: "v-under-hour",
+                patientId: "patient-1",
+                doctorId: mockDoctor,
+                visitDate: createdAtTime,
+                chiefComplaint: "Mild rash",
+                diagnosis: "Contact dermatitis",
+                notes: "Topical cream applied",
+                createdBy: "u-1",
+                createdAt: createdAtTime,
+            };
+
+            vi.mocked(api.get).mockResolvedValueOnce({
+                data: {
+                    visits: [mockVisitUnderHour],
+                    pagination: { totalVisits: 1, totalPages: 1, currentPage: 1, limit: 10 },
+                },
+            });
+
+            renderWithClient(
+                <VisitsTimeline
+                    patientId="patient-1"
+                    patientName="John Doe"
+                    doctorTimezone="Asia/Dhaka"
+                />
+            );
+
+            await waitFor(() => {
+                expect(screen.getByText(/Editable for 40 more minutes/i)).toBeInTheDocument();
+            });
+        });
+
+        it("targets specific visit in appointment View Visit link without clinical text in URL", () => {
+            mockAuth("doctor", "doc-1");
+
+            const appointmentWithVisit: Appointment = {
+                _id: "appt-999",
+                doctorId: mockDoctor,
+                patientId: mockPatient,
+                startsAt: "2026-11-10T10:00:00.000Z",
+                endsAt: "2026-11-10T10:30:00.000Z",
+                status: "completed",
+                visitId: "visit-xyz-888",
+                createdAt: "2026-11-01T00:00:00.000Z",
+            };
+
+            renderWithClient(
+                <AppointmentDetailsDialog
+                    appointment={appointmentWithVisit}
+                    open={true}
+                    onOpenChange={vi.fn()}
+                />
+            );
+
+            const viewVisitLink = screen.getByRole("link", { name: /view visit/i });
+            expect(viewVisitLink).toBeInTheDocument();
+
+            const href = viewVisitLink.getAttribute("href");
+            // Must contain target visit param: ?tab=visits&visit=<id>
+            expect(href).toBe("/patients/patient-1?tab=visits&visit=visit-xyz-888");
+            // Must NOT contain clinical text
+            expect(href).not.toContain("Hypertension");
+            expect(href).not.toContain("Cardiology");
+        });
+
+        it("highlights targeted visit card when visit param is present in URL", async () => {
+            mockAuth("doctor", "doc-1");
+            mockCurrentTab = "visits";
+
+            // Mock searchParams to include visit=v-target
+            vi.mocked(api.get).mockImplementation((url: string) => {
+                if (url.includes("/patients/patient-1/visits")) {
+                    return Promise.resolve({
+                        data: {
+                            visits: [
+                                {
+                                    _id: "v-other",
+                                    patientId: "patient-1",
+                                    doctorId: mockDoctor,
+                                    visitDate: "2026-11-10T12:00:00.000Z",
+                                    chiefComplaint: "Cold",
+                                    diagnosis: "Common cold",
+                                    notes: "Rest",
+                                    createdAt: "2026-11-10T12:00:00.000Z",
+                                },
+                                {
+                                    _id: "v-target",
+                                    patientId: "patient-1",
+                                    doctorId: mockDoctor,
+                                    visitDate: "2026-11-12T12:00:00.000Z",
+                                    chiefComplaint: "Back pain",
+                                    diagnosis: "Lumbar strain",
+                                    notes: "Physiotherapy",
+                                    createdAt: "2026-11-12T12:00:00.000Z",
+                                },
+                            ],
+                            pagination: { totalVisits: 2, totalPages: 1, currentPage: 1, limit: 10 },
+                        },
+                    });
+                }
+                return Promise.resolve({ data: {} });
+            });
+
+            // Mock Element.prototype.scrollIntoView
+            const scrollIntoViewMock = vi.fn();
+            window.HTMLElement.prototype.scrollIntoView = scrollIntoViewMock;
+
+            // Spy on useSearchParams to return visit=v-target
+            renderWithClient(
+                <VisitsTimeline
+                    patientId="patient-1"
+                    patientName="John Doe"
+                    doctorTimezone="Asia/Dhaka"
+                />
+            );
+
+            await waitFor(() => {
+                expect(screen.getByText("Back pain")).toBeInTheDocument();
+            });
+
+            const targetCard = document.getElementById("visit-v-target");
+            expect(targetCard).toBeInTheDocument();
         });
     });
 });

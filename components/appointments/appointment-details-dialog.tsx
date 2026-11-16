@@ -333,7 +333,7 @@ export function AppointmentDetailsDialog({
                                         className="text-xs h-8 gap-1 shrink-0"
                                         onClick={() => onOpenChange(false)}
                                     >
-                                        <Link href={`/patients/${patientId}?tab=visits`}>
+                                        <Link href={`/patients/${patientId}?tab=visits&visit=${appointment.visitId}`}>
                                             View Visit
                                             <ArrowUpRight className="h-3 w-3" />
                                         </Link>
