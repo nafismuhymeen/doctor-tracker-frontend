@@ -58,9 +58,17 @@ export function DoctorMyDay() {
     const doctor = doctorData?.data?.doctor;
     const doctorTimezone = doctor?.timezone || "UTC";
 
+    const doctorTodayDateStr = useMemo(() => {
+        try {
+            return new Intl.DateTimeFormat("en-CA", { timeZone: doctorTimezone }).format(new Date());
+        } catch {
+            return format(new Date(), "yyyy-MM-dd");
+        }
+    }, [doctorTimezone]);
+
     // Query today's appointments for this doctor in their timezone
     const { data: apptsResponse, isLoading: isLoadingToday } = useQuery({
-        queryKey: qk.appointments.list(`doctor_today_${doctorId}_${doctorTimezone}`),
+        queryKey: qk.appointments.list(`doctor_today_${doctorId}_${doctorTodayDateStr}`),
         queryFn: () => {
             const todayInDoctorTz = new TZDate(new Date(), doctorTimezone);
             const todayStart = startOfDay(todayInDoctorTz);
@@ -69,7 +77,7 @@ export function DoctorMyDay() {
                 `/appointments?doctorId=${doctorId}&from=${new Date(todayStart.getTime()).toISOString()}&to=${new Date(todayEnd.getTime()).toISOString()}&limit=50`
             );
         },
-        enabled: !!doctorId,
+        enabled: !!doctorId && !!doctor,
     });
 
     const todayAppointments = useMemo(() => {

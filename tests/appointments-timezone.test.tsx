@@ -5,10 +5,44 @@ process.env.TZ = "America/New_York";
 import { describe, it, expect, vi } from "vitest";
 import React from "react";
 import { render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TZDate } from "@date-fns/tz";
 import { startOfWeek, endOfWeek, startOfDay, endOfDay } from "date-fns";
+import AppointmentsPage from "@/app/(app)/appointments/page";
 import { AppointmentsCalendar } from "@/components/appointments/appointments-calendar";
+import * as AuthProviderModule from "@/components/providers/auth-provider";
+import { api } from "@/lib/api";
 import type { Appointment, Doctor } from "@/types";
+
+const mockSearchParams = new URLSearchParams(
+    "view=day&date=2026-11-15&doctorId=doc-dhaka-1"
+);
+
+vi.mock("next/navigation", () => ({
+    useRouter: () => ({
+        push: vi.fn(),
+        replace: vi.fn(),
+    }),
+    usePathname: () => "/appointments",
+    useSearchParams: () => mockSearchParams,
+}));
+
+vi.mock("@/lib/api", () => ({
+    api: {
+        get: vi.fn(),
+        post: vi.fn(),
+    },
+    ApiError: class ApiError extends Error {
+        status: number;
+        code?: string;
+        constructor(message: string, status: number, code?: string) {
+            super(message);
+            this.status = status;
+            this.code = code;
+            this.name = "ApiError";
+        }
+    },
+}));
 
 describe("Timezone Handling (Doctor in Asia/Dhaka, Browser in America/New_York)", () => {
     const mockDoctorDhaka: Doctor = {
@@ -137,5 +171,61 @@ describe("Timezone Handling (Doctor in Asia/Dhaka, Browser in America/New_York)"
 
         // Must NOT format in browser-local New York time (which would be 22:00)
         expect(screen.queryByText(/22:00/)).not.toBeInTheDocument();
+    });
+
+    it("renders AppointmentsPage with Dhaka doctor and asserts request URL has from=2026-11-14T18:00:00.000Z for day view of 2026-11-15", async () => {
+        vi.spyOn(AuthProviderModule, "useAuth").mockReturnValue({
+            user: {
+                id: "u-admin",
+                name: "Admin User",
+                email: "admin@clinic.com",
+                role: "admin",
+            },
+            role: "admin",
+            isLoading: false,
+            isAuthenticated: true,
+            login: vi.fn(),
+            logout: vi.fn(),
+            logoutAll: vi.fn(),
+            can: () => true,
+        });
+
+        vi.mocked(api.get).mockImplementation(async (url: string) => {
+            if (url.startsWith("/doctors")) {
+                return { success: true, data: { doctors: [mockDoctorDhaka] } };
+            }
+            if (url.startsWith("/appointments")) {
+                return { success: true, data: { appointments: [sundayAppointment] } };
+            }
+            return { success: true, data: {} };
+        });
+
+        const queryClient = new QueryClient({
+            defaultOptions: {
+                queries: { retry: false, gcTime: 0 },
+            },
+        });
+
+        render(
+            <QueryClientProvider client={queryClient}>
+                <AppointmentsPage />
+            </QueryClientProvider>
+        );
+
+        // Wait for appointment request to be dispatched and card rendered
+        await screen.findByText("Rahim Uddin");
+
+        const appointmentCalls = vi.mocked(api.get).mock.calls
+            .map(([url]) => url)
+            .filter((url) => url.startsWith("/appointments?"));
+
+        expect(appointmentCalls.length).toBeGreaterThan(0);
+        const requestedUrl = appointmentCalls[0];
+        const search = new URLSearchParams(requestedUrl.replace("/appointments?", ""));
+
+        // Must request the day boundary in Dhaka timezone: 2026-11-14T18:00:00.000Z to 2026-11-15T17:59:59.999Z
+        expect(search.get("from")).toBe("2026-11-14T18:00:00.000Z");
+        expect(search.get("to")).toBe("2026-11-15T17:59:59.999Z");
+        expect(search.get("doctorId")).toBe("doc-dhaka-1");
     });
 });

@@ -70,15 +70,14 @@ function AppointmentsContent() {
     const canBook = role === "admin" || role === "staff" || role === "doctor";
 
     // URL parameter parsing (validate view param against "week" | "day" | "list")
+    const searchParamDate = searchParams.get("date");
     const rawView = searchParams.get("view");
     const urlView: "week" | "day" | "list" =
         rawView === "day" || rawView === "list" ? rawView : "week";
-    const urlDate = searchParams.get("date") || format(new Date(), "yyyy-MM-dd");
     const urlDoctorId = isDoctorUser ? user.doctorId! : (searchParams.get("doctorId") || "");
     const urlStatus = (searchParams.get("status") as AppointmentStatus | "all") || "all";
 
     const [view, setView] = useState<"week" | "day" | "list">(urlView);
-    const [selectedDateStr, setSelectedDateStr] = useState<string>(urlDate);
     const [selectedDoctorId, setSelectedDoctorId] = useState<string>(urlDoctorId);
     const [statusFilter, setStatusFilter] = useState<AppointmentStatus | "all">(urlStatus);
     const [page, setPage] = useState<number>(1);
@@ -99,6 +98,35 @@ function AppointmentsContent() {
     // Single doctor selection rule: locked for doctor role, user-selected for others, NO silent fallback to doctors[0]
     const effectiveDoctorId = isDoctorUser ? user.doctorId! : selectedDoctorId;
 
+    const activeDoctor = effectiveDoctorId
+        ? doctors.find((d) => d._id === effectiveDoctorId)
+        : null;
+    const doctorTimezone = activeDoctor?.timezone || "UTC";
+
+    const getTodayInDoctorTz = (tz: string) => {
+        try {
+            return new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(new Date());
+        } catch {
+            return format(new Date(), "yyyy-MM-dd");
+        }
+    };
+
+    const initialDateDefault = useMemo(() => {
+        if (searchParamDate) return searchParamDate;
+        return activeDoctor?.timezone
+            ? getTodayInDoctorTz(activeDoctor.timezone)
+            : format(new Date(), "yyyy-MM-dd");
+    }, [searchParamDate, activeDoctor?.timezone]);
+
+    const [selectedDateStr, setSelectedDateStr] = useState<string>(initialDateDefault);
+
+    // If no explicit ?date was specified in URL, update default to today in active doctor's timezone once known
+    const [syncedDocTz, setSyncedDocTz] = useState<string | null>(null);
+    if (!searchParamDate && activeDoctor?.timezone && syncedDocTz !== activeDoctor.timezone) {
+        setSyncedDocTz(activeDoctor.timezone);
+        setSelectedDateStr(getTodayInDoctorTz(activeDoctor.timezone));
+    }
+
     useEffect(() => {
         const params = new URLSearchParams();
         params.set("view", view);
@@ -108,11 +136,6 @@ function AppointmentsContent() {
 
         router.replace(`${pathname}?${params.toString()}`);
     }, [view, selectedDateStr, effectiveDoctorId, statusFilter, pathname, router]);
-
-    const activeDoctor = effectiveDoctorId
-        ? doctors.find((d) => d._id === effectiveDoctorId)
-        : null;
-    const doctorTimezone = activeDoctor?.timezone || "UTC";
 
     const selectedDate = useMemo(() => {
         try {
@@ -159,7 +182,7 @@ function AppointmentsContent() {
             api.get<ApiResponse<AppointmentsResponse>>(
                 `/appointments?${calendarQueryParam}`
             ),
-        enabled: (view === "week" || view === "day") && !!effectiveDoctorId,
+        enabled: (view === "week" || view === "day") && !!effectiveDoctorId && !!activeDoctor,
     });
 
     // Query for List view (Paginated, supports all or specific doctor, NO search param)
@@ -328,7 +351,7 @@ function AppointmentsContent() {
                             </div>
                         ) : (
                             <Select
-                                value={selectedDoctorId || "all"}
+                                value={selectedDoctorId || (view === "list" ? "all" : "")}
                                 onValueChange={(id) => {
                                     setSelectedDoctorId(id === "all" ? "" : id);
                                     setPage(1);
@@ -345,9 +368,11 @@ function AppointmentsContent() {
                                     />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all" className="text-xs">
-                                        All Practitioners
-                                    </SelectItem>
+                                    {view === "list" && (
+                                        <SelectItem value="all" className="text-xs">
+                                            All Practitioners
+                                        </SelectItem>
+                                    )}
                                     {doctors.map((d) => (
                                         <SelectItem key={d._id} value={d._id} className="text-xs">
                                             {d.name} — {d.specialization}

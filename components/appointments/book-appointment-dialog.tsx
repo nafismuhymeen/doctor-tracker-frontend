@@ -109,9 +109,26 @@ export function BookAppointmentDialog({
     const [reason, setReason] = useState<string>("");
     const [patientSearch, setPatientSearch] = useState<string>("");
 
+    // Synchronize selectedDate when doctor changes or dialog opens (do not rely on initial useState)
+    const [prevDoctorId, setPrevDoctorId] = useState(selectedDoctorId);
+    if (selectedDoctorId !== prevDoctorId) {
+        setPrevDoctorId(selectedDoctorId);
+        setSelectedDate(getDoctorTodayStr(doctorTimezone));
+        setSelectedSlot(null);
+    }
+
+    const [prevOpen, setPrevOpen] = useState(open);
+    if (open !== prevOpen) {
+        setPrevOpen(open);
+        if (open) {
+            setSelectedDate(getDoctorTodayStr(doctorTimezone));
+            setSelectedSlot(null);
+        }
+    }
+
     const resetForm = () => {
         setSelectedDoctorIdOverride(null);
-        setSelectedDate(doctorTodayStr);
+        setSelectedDate(getDoctorTodayStr(doctorTimezone));
         setSelectedSlot(null);
         setSelectedPatientId("");
         setReason("");
@@ -119,7 +136,10 @@ export function BookAppointmentDialog({
     };
 
     const handleOpenChange = (newOpen: boolean) => {
-        if (!newOpen) {
+        if (newOpen) {
+            setSelectedDate(getDoctorTodayStr(doctorTimezone));
+            setSelectedSlot(null);
+        } else {
             resetForm();
         }
         setOpen(newOpen);
@@ -285,7 +305,10 @@ export function BookAppointmentDialog({
                             <Select
                                 value={selectedDoctorId}
                                 onValueChange={(id) => {
+                                    const nextDoc = doctors.find((d) => d._id === id);
+                                    const nextTz = nextDoc?.timezone || "UTC";
                                     setSelectedDoctorIdOverride(id);
+                                    setSelectedDate(getDoctorTodayStr(nextTz));
                                     setSelectedSlot(null);
                                     setSelectedPatientId("");
                                     setPatientSearch("");
