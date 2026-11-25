@@ -1,183 +1,175 @@
-# Doctor Tracker – Healthcare Management Portal
+# Doctor Tracker — Clinic Management Portal (Frontend)
 
-## Description
+A role-based clinic management web app: practitioners and their schedules, patients, appointment booking with conflict handling, clinical visit notes, and an admin audit trail. Built with **Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4 and TanStack Query**, on top of the [Doctor Tracker API](https://github.com/nafismuhymeen/doctor-tracker-backend) (Express 5, MongoDB).
 
-Doctor Tracker is a modern, high-performance administrative healthcare portal engineered to streamline the management of medical practitioners and their patient rosters. Built with a decoupled Next.js 16 frontend and a standalone Express/MongoDB backend, the platform enables authenticated healthcare administrators to oversee doctor credentials, assign and monitor patients under specific doctors, analyze patient diagnostic distribution, and inspect real-time clinical workload metrics through interactive visual dashboards.
+> **Live demo:** _TODO: add URL_ · **Demo login (read-only viewer):** _TODO: add email and password_
+> All data is synthetic. This is a portfolio project and not a certified HIPAA-compliant system.
 
----
-
-## Setup Guide
-
-### Prerequisites
-
-- **Node.js**: v18.0.0 or higher
-- **Yarn**: v1.22+ or corepack
-- **MongoDB**: A local instance (`mongodb://localhost:27017/doctor_tracker`) or MongoDB Atlas URI
+<!-- TODO: add 4–6 current screenshots here (dashboard, appointments calendar, booking dialog, visit form, audit log, dark mode). The old WhatsApp screenshots show the pre-expansion UI. -->
 
 ---
 
-### Step-by-Step Installation
+## Features
 
-#### 1. Backend Setup
-
-1. Navigate to the backend directory:
-   ```bash
-   cd doctor-tracker-backend
-   ```
-2. Install dependencies:
-   ```bash
-   yarn install
-   ```
-3. Create your `.env` configuration file:
-   ```bash
-   cp .env.example .env
-   ```
-   Configure the following environment variables in `.env`:
-   ```env
-   NODE_ENV=development
-   PORT=5000
-   CLIENT_URL=http://localhost:3000
-   MONGODB_URI=mongodb://localhost:27017/doctor_tracker
-   JWT_SECRET=super_secret_jwt_key_here_at_least_32_chars
-   ADMIN_NAME=Healthcare Admin
-   ADMIN_EMAIL=admin@doctortracker.com
-   ADMIN_PASSWORD=AdminPassword123!
-   ```
-4. Seed the initial admin account & sample healthcare data:
-   ```bash
-   yarn seed:admin
-   yarn seed:data
-   ```
-   _Note: `yarn seed:data` populates 20 doctors across diverse specializations with realistic hospital affiliations, chronologically staggered registration dates, and 2–5 linked patients each (70+ total patients)._
-5. Start the backend development server:
-   ```bash
-   yarn dev
-   ```
-   The backend API will run at `http://localhost:5000/api/v1`.
+| Area | What it does |
+|---|---|
+| **Authentication** | Sign-in with httpOnly cookie sessions. Short-lived access token plus rotating refresh token handled transparently: concurrent requests share a single refresh (single-flight), multi-tab races are handled, and an expired session redirects to sign-in with a return URL (open-redirect safe). |
+| **Roles (RBAC)** | `admin`, `staff`, `doctor`, `viewer`. A central `can(role, action, ctx)` map in `lib/permissions.ts` drives navigation, buttons, route guards and the command palette. The backend enforces the same rules; the UI only mirrors them. |
+| **Doctors & schedules** | Directory with search and filters. Weekly working hours and slot length are edited per doctor with validation that matches the API (no overlapping shifts, hours must align to the slot length). Each doctor has an IANA timezone. |
+| **Patients** | Registry with search, filters and assignment to a practitioner. Deleting a doctor requires reassigning their patients. |
+| **Appointments** | Custom week / day / list calendar (no calendar library). Booking flow: doctor → date → available slot → assigned patient → reason. Handles slot conflicts, double bookings, out-of-hours attempts and invalid status transitions with specific messages. Reschedule, cancel, complete, no-show. |
+| **Clinical visits** | Visit notes (vitals, diagnosis, prescriptions) for the treating doctor, editable for 24 hours; afterwards only append-only addenda can be added. Admin can read but not write. Visit data is cached briefly and never placed in URLs. |
+| **Audit log (admin)** | Filterable event log (filters live in the URL, so a view can be shared), detail drawer, from → to diff viewer, with sensitive values shown as "Redacted". Append-only: no edit or delete UI. |
+| **Dashboards** | Admin/viewer statistics (Recharts), an appointments dashboard, and a "My day" view for doctors. |
+| **Polish** | Command palette (`Ctrl/Cmd + K`), offline banner, error boundaries and not-found pages, loading skeletons, dark mode, responsive layout. |
 
 ---
 
-#### 2. Frontend Setup
+## Tech stack
 
-1. Navigate to the frontend directory:
-   ```bash
-   cd ../doctor-tracker-frontend
-   ```
-2. Install dependencies:
-   ```bash
-   yarn install
-   ```
-3. Configure environment variables in `.env.local`:
-   ```bash
-   cp .env.example .env.local
-   ```
-   Ensure the backend endpoint is configured:
-   ```env
-   NEXT_PUBLIC_API_URL=http://localhost:5000/api/v1
-   ```
-4. Start the frontend development server:
-   ```bash
-   yarn dev
-   ```
-5. Open your browser and navigate to `http://localhost:3000`. You will be automatically redirected to `/dashboard` (or `/login` if unauthenticated).
+- **Framework:** Next.js 16.4 (App Router), React 19, TypeScript
+- **Styling / UI:** Tailwind CSS 4, Radix UI primitives with shadcn-style components, Lucide icons, `next-themes`, Sonner toasts
+- **Data:** TanStack Query 5, TanStack Table 8, API types generated from the backend's OpenAPI spec (`openapi-typescript`)
+- **Forms / validation:** React Hook Form + Zod 4
+- **Dates / timezones:** date-fns 4 + `@date-fns/tz`
+- **Charts:** Recharts 3
+- **Testing:** Vitest + React Testing Library + MSW (unit/component), Playwright + `@axe-core/playwright` (end-to-end and accessibility)
+- **Delivery:** Docker (multi-stage, non-root), GitHub Actions CI
 
 ---
 
-## System Architecture
-
-The project follows a decoupled, service-oriented architecture:
+## Architecture
 
 ```
-[ Browser / Next.js 16 Client ]
-       │
-       │ HTTP/REST (JSON + httpOnly JWT Cookie)
-       ▼
-[ Express.js 5 Application ]
-  ├── Security (Helmet, CORS, Cookie-Parser)
-  ├── Route Guards (authenticateAdmin middleware)
-  └── Modular Handlers:
-       ├── Auth Service (bcrypt, JWT token issuer)
-       ├── Doctor Service (MongoDB Lean queries & compound indexes)
-       ├── Patient Service (Relational refs & cascading queries)
-       └── Dashboard Service (Parallelized MongoDB Aggregation Pipelines)
-       │
-       ▼
-[ MongoDB Database ]
-  ├── doctors collection (indexed on name, spec, hospital, createdAt)
-  ├── patients collection (indexed on doctorId, condition, name, phone, createdAt)
-  └── admins collection (indexed on email)
+Browser
+  │  same-origin requests to /api/v1/*   (httpOnly cookies, no CORS)
+  ▼
+Next.js 16 server  ──  rewrites /api/v1/:path*  ──►  Express 5 API  ──►  MongoDB (replica set)
+  (UI, route guards)                                  (auth, RBAC, audit)
 ```
 
-- **Data Flow**:
-  1. Next.js communicates with Express REST endpoints using credentials mode (`include`) to exchange secure HTTP-only cookies.
-  2. TanStack Query manages asynchronous server state, caching, query invalidation, and optimistic feedback.
-  3. TanStack Table powers pagination, search filtering, and relational lookups across doctor and patient datasets.
-  4. The dashboard aggregates statistics directly at the database tier using MongoDB `$facet`, `$lookup`, and `$group` operations, avoiding wasteful transfers of raw record sets to the client.
+Key decisions:
+
+1. **Same-origin API proxy.** The browser only talks to the Next.js origin, and Next rewrites `/api/v1/*` to the API. Auth cookies therefore stay first-party, so sign-in keeps working in browsers that block third-party cookies. Because Next resolves rewrites **at build time**, the backend address is a build argument (`BACKEND_INTERNAL_URL`), not a runtime variable.
+2. **Single source of truth for permissions.** UI gating, route guards and the command palette all call `can()`. The server remains the authority: a doctor requesting out-of-scope records gets a 404, and the UI shows a not-found view.
+3. **Timezone correctness.** The API sends UTC. Appointment times, day and week boundaries and booking dates are computed in the **doctor's** timezone, never the browser's, and the UI labels the zone. Unit tests run with the browser in a different timezone from the doctor.
+4. **Server-state discipline.** All server data goes through TanStack Query with centralized query keys (`lib/query-keys.ts`). Mutations invalidate precisely, and logout clears the cache.
+5. **Contract-first typing.** `contracts/openapi.json` is exported from the backend and turned into types with `yarn gen:api`, so contract drift shows up as a compile error.
+6. **Error codes, not strings.** The API returns machine-readable `code` values (`SLOT_TAKEN`, `EDIT_WINDOW_EXPIRED`, …). The UI maps codes to specific messages and recovery actions instead of matching message text.
+7. **Accessibility is tested.** Axe scans run in CI against every main authenticated page; critical and serious violations fail the build.
 
 ---
 
-## Technical Decisions
+## Getting started
 
-### Decision 1: Server-Side MongoDB Aggregation Pipeline vs. Client-Side In-Memory Compute
+**Prerequisites:** Node.js 20 or 22, Yarn 1.x, MongoDB 6+ running as a **replica set** (the API uses transactions; Docker or Atlas is the easiest way).
 
-- **Context**: The Admin Dashboard requires metrics including total practitioner headcounts, total patient volume, dynamic patient-to-doctor ratios, chronological registration trends, and specialty distribution.
-- **Why Aggregation Won**: Pulling entire collections of thousands of patient and doctor records down to the browser to run `.filter()`, `.reduce()`, and `.length` calls would incur severe network overhead, degrade mobile battery/CPU life, and fail scalability benchmarks. Instead, we architected a single, parallelized MongoDB aggregation pipeline in `DashboardService` using `$lookup`, `$group`, and date formatting operators. The database handles the calculation across indexed fields and returns a minimal, chart-ready JSON payload in under 20ms.
+### 1. Backend
 
-### Decision 2: TanStack React Query + HTTP-Only Cookie Authentication vs. LocalStorage Tokens
+```bash
+git clone https://github.com/nafismuhymeen/doctor-tracker-backend
+cd doctor-tracker-backend
+yarn install
+cp .env.example .env     # set MONGODB_URI and a JWT_SECRET of at least 32 characters
+yarn seed:demo           # development only; refuses to run when NODE_ENV=production
+yarn dev                 # http://localhost:5000/api/v1  (Swagger UI at /api/docs)
+```
 
-- **Context**: Authentication tokens must be persisted across page reloads and protected from Cross-Site Scripting (XSS) vectors.
-- **Why HTTP-Only Cookies + React Query Won**: Storing JWT tokens in `localStorage` exposes them to client-side script theft via XSS vulnerabilities. By configuring the Express server to set the `accessToken` in an `httpOnly`, `sameSite: "lax"`, and `secure` cookie, the token cannot be accessed by client JavaScript. Combining this with TanStack Query and a centralized React `AuthProvider` guarantees automatic re-validation, seamless silent session checks (`GET /auth/me`), and zero token leakage.
+### 2. Frontend
+
+```bash
+git clone https://github.com/nafismuhymeen/doctor-tracker-frontend
+cd doctor-tracker-frontend
+yarn install
+cp .env.example .env.local
+yarn dev                 # http://localhost:3000
+```
+
+### Seeded development accounts
+
+`yarn seed:demo` (development only) creates these accounts, all with the password `Password123!`. They exist for local development and tests only. Never deploy them.
+
+| Role | Email |
+|---|---|
+| admin | `admin@clinic.com` |
+| staff | `staff@clinic.com` |
+| doctor | `doctor@clinic.com` (linked to Dr. Sarah Johnson) |
+| viewer | `viewer@clinic.com` |
 
 ---
 
-## Visual Evidence
+## Environment variables
 
-### 1. Admin Dashboard (Desktop & Mobile)
+| Variable | When read | Purpose |
+|---|---|---|
+| `NEXT_PUBLIC_API_URL` | **build** | API base URL used by the browser. Use `/api/v1` with the proxy (default). Use a full URL such as `http://localhost:5000/api/v1` only for direct-mode development. |
+| `BACKEND_INTERNAL_URL` | **build** | Where the Next.js server proxies `/api/v1/*` (default `http://localhost:5000`). |
+| `NEXT_PUBLIC_DEMO_EMAIL`, `NEXT_PUBLIC_DEMO_PASSWORD` | **build** | Optional "Fill demo account" button on the login page. These values are public in the client bundle, so only ever use a **read-only viewer** account. |
 
-- Overview cards for Total Doctors, Total Patients, and Patients Per Doctor.
-- Interactive Recharts registration timeline (Area chart) with dynamic time filtering (`7d`, `30d`, `90d`, `1y`, `all`).
-- Patients per doctor workload breakdown (Horizontal Bar chart).
-- Medical specialty distribution (Donut chart) and common conditions breakdown.
+---
 
-### 2. Doctor Management Portal
+## Scripts
 
-- Full TanStack data table with debounced search by doctor name, specialty filtering, hospital filtering, and shadcn Date Picker range filters.
-- "Add Doctor" modal dialog with real-time Zod schema validation.
-- Dedicated Doctor & Patients page (`/doctors/[id]`): Displays doctor details (specialization, hospital, phone, email, joined date) at the top and their complete patient roster at the bottom.
-- "Add Patient" modal dialog accessible right above the patient roster to register new patients directly under that practitioner.
-- Shadcn Alert Dialog confirmation for securely removing patients from a doctor's care.
+| Command | Description |
+|---|---|
+| `yarn dev` | Development server |
+| `yarn build` / `yarn start` | Production build (standalone output) and server |
+| `yarn lint` / `yarn typecheck` | ESLint and TypeScript checks |
+| `yarn test` | Unit and component tests (Vitest, 146 tests) |
+| `yarn test:e2e` | Playwright end-to-end and accessibility tests (needs the backend running with seeded data) |
+| `yarn gen:api` | Regenerate API types from `contracts/openapi.json` |
 
-### 3. Dedicated Patient Management
+---
 
-- Full registry table with name/phone search, condition filtering, and date range filters.
-- "Edit Patient" modal dialog.
-- Delete confirmation dialog with cache synchronization.
+## Testing
 
-### 4. Theme Support
+- **Unit/component (Vitest, RTL, MSW):** permissions, validation schemas, auth and refresh behavior, timezone handling, booking and status flows, visits, audit filters and diff viewer.
+- **End-to-end (Playwright, 21 tests):** sign-in for every role, session survival after the access cookie expires, booking a slot and the slot-conflict path, admin creating a doctor with a schedule, a doctor recording a visit and an addendum, role restrictions, the audit trail, and axe accessibility scans of the main pages.
+- **CI:** GitHub Actions runs lint, typecheck, unit tests and the production build, then starts MongoDB, the backend and the built frontend and runs Playwright.
 
-- Instant toggling between Light and Dark themes via `next-themes` and CSS design tokens.
+---
 
-### 5. Sample Images
-<img width="576" height="1280" alt="WhatsApp Image 2026-11-01 at 12 05 29 AM" src="https://github.com/user-attachments/assets/630fef5f-f5be-4d10-8a9a-a84c47f20596" />
-<img width="576" height="1280" alt="WhatsApp Image 2026-11-01 at 12 05 35 AM" src="https://github.com/user-attachments/assets/627a0c01-3c5a-4531-9b62-718df4849552" />
-<img width="576" height="1280" alt="WhatsApp Image 2026-11-01 at 12 05 34 AM" src="https://github.com/user-attachments/assets/d1d60ca8-0e47-4a7f-b4ad-88f0d67b2223" />
-<img width="576" height="1280" alt="WhatsApp Image 2026-11-01 at 12 05 33 AM" src="https://github.com/user-attachments/assets/0be93d07-4359-4971-b17d-03812d2b9380" />
-<img width="576" height="1280" alt="WhatsApp Image 2026-11-01 at 12 05 32 AM" src="https://github.com/user-attachments/assets/3712745f-0b67-45dd-8b65-aa6d373f637e" />
-<img width="576" height="1280" alt="WhatsApp Image 2026-11-01 at 12 05 31 AM" src="https://github.com/user-attachments/assets/52ed876b-71a3-423e-959f-bbdff7a9229c" />
-<img width="576" height="1280" alt="WhatsApp Image 2026-11-01 at 12 05 31 AM (2)" src="https://github.com/user-attachments/assets/bf74ce89-6e23-4f82-9d23-3faffb5e91ff" />
-<img width="576" height="1280" alt="WhatsApp Image 2026-11-01 at 12 05 31 AM (1)" src="https://github.com/user-attachments/assets/1fbd9569-3335-45df-b4e6-ae985e85fc2f" />
-<img width="576" height="1280" alt="WhatsApp Image 2026-11-01 at 12 05 30 AM" src="https://github.com/user-attachments/assets/32ebd70b-5974-4e30-b2c9-b4c2cf8d6020" />
-<img width="1919" height="920" alt="Screenshot_425" src="https://github.com/user-attachments/assets/3c9aab00-6386-400b-be08-50b26d33f13b" />
-<img width="1917" height="922" alt="Screenshot_424" src="https://github.com/user-attachments/assets/298a30d0-a6aa-4e33-a8fe-1153abc8b857" />
-<img width="1909" height="922" alt="Screenshot_423" src="https://github.com/user-attachments/assets/1bd6142b-6d00-4dfa-9dbb-3dbe13dc19ea" />
-<img width="1919" height="922" alt="Screenshot_422" src="https://github.com/user-attachments/assets/9342d1f0-973d-46d9-b316-524519daec9b" />
-<img width="1919" height="921" alt="Screenshot_421" src="https://github.com/user-attachments/assets/c6872343-662c-4ed9-956e-769b415a068b" />
-<img width="1919" height="920" alt="Screenshot_420" src="https://github.com/user-attachments/assets/80aa39d9-a2ee-43cd-b331-7562e9818354" />
-<img width="1909" height="920" alt="Screenshot_419" src="https://github.com/user-attachments/assets/e5e89837-2f3f-4782-b392-111a6d4f6ccb" />
-<img width="1907" height="921" alt="Screenshot_418" src="https://github.com/user-attachments/assets/7f144672-5da9-4cc8-a5fc-944e957479ff" />
-<img width="1919" height="921" alt="Screenshot_417" src="https://github.com/user-attachments/assets/fd546964-9505-44ef-9788-da02b9563cf5" />
+## Docker
 
-### 6. Demo Credentials
-- Email: nafis@gmail.com
-- Password: qwtef12376e
+`docker-compose.yml` runs MongoDB (replica set), the API (built from `../doctor-tracker-backend`) and this app behind the same-origin proxy.
 
+```bash
+# Backend repository checked out next to this one
+export JWT_ACCESS_SECRET="$(openssl rand -hex 32)"
+export JWT_REFRESH_SECRET="$(openssl rand -hex 32)"
+docker compose up --build
+# App: http://localhost:3000
+```
+
+The compose file passes `BACKEND_INTERNAL_URL` and the `NEXT_PUBLIC_*` values as **build arguments**, because Next.js bakes them in at build time. The API runs with `NODE_ENV=production`, which refuses `yarn seed:demo`. Provision data with the production-safe seed in the backend (`yarn seed:demo-prod`; see the backend README).
+
+---
+
+## Deployment notes
+
+<!-- TODO: fill in once deployed: hosting provider, region, and the build arguments used. -->
+
+- Deploy the frontend with `BACKEND_INTERNAL_URL` set to the API's public URL **at build time**.
+- Serve both over HTTPS. The API sets `Secure` cookies when `NODE_ENV=production`.
+- For a public demo, expose only a read-only viewer account on the login page and keep the admin password secret.
+
+---
+
+## Performance
+
+<!-- TODO: add measured Lighthouse numbers (desktop and mobile) for /login and /dashboard from a production build. Do not publish figures that were not measured. -->
+
+---
+
+## Limitations and next steps
+
+- Not a certified HIPAA system. It has no field-level encryption and no real-time updates.
+- No email or SMS reminders. Appointment changes are only visible after a refetch or navigation.
+- The calendar is custom and focused on one practitioner at a time, with no drag-and-drop rescheduling.
+- Possible next steps: WebSocket or SSE updates, a multi-practitioner calendar overlay, internationalization, and Playwright runs on more browsers.
+
+---
+
+## License
+
+MIT
