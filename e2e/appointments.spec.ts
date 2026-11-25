@@ -113,10 +113,8 @@ test.describe("E2E: Appointment Booking Flow & Slot Conflict Prevention", () => 
           contentType: "application/json",
           body: JSON.stringify({
             success: false,
-            error: {
-              code: "SLOT_TAKEN",
-              message: "The selected time slot is already booked",
-            },
+            message: "The selected time slot is already booked",
+            code: "SLOT_TAKEN",
           }),
         });
       } else {
