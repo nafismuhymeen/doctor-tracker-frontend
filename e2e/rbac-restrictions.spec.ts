@@ -8,14 +8,16 @@ test.describe("E2E: RBAC Permission Boundaries", () => {
     await expect(page).toHaveURL(/\/dashboard/);
     await expect(page.getByRole("heading", { level: 1, name: /clinical dashboard/i })).toBeVisible();
 
-    // 2. On /doctors: No "Add Doctor" button
+    // 2. On /doctors: No "Add Doctor" button, seeded doctors are visible
     await page.goto("/doctors");
     await expect(page.getByRole("heading", { level: 1, name: /doctor management/i })).toBeVisible();
+    await expect(page.getByText("Dr. Sarah Johnson")).toBeVisible();
     await expect(page.getByRole("button", { name: /add doctor/i })).not.toBeVisible();
 
-    // 3. On /patients: No "Add Patient" button
+    // 3. On /patients: No "Add Patient" button, seeded patients are visible
     await page.goto("/patients");
     await expect(page.getByRole("heading", { level: 1, name: /patient management/i })).toBeVisible();
+    await expect(page.getByText("John Davis")).toBeVisible();
     await expect(page.getByRole("button", { name: /add patient/i })).not.toBeVisible();
 
     // 4. On /appointments: No "New Appointment" button
@@ -39,15 +41,16 @@ test.describe("E2E: RBAC Permission Boundaries", () => {
     await expect(page.getByRole("heading", { name: /access denied/i })).toBeVisible();
     await expect(page.getByRole("heading", { level: 1, name: /^audit logs$/i })).not.toBeVisible();
 
-    // 3. Navigate to /patients and open first patient profile
+    // 3. Navigate to /patients and open seeded patient John Davis's profile
     await page.goto("/patients");
     await expect(page.getByRole("heading", { level: 1, name: /patient management/i })).toBeVisible();
 
-    const firstPatientLink = page.locator('table tbody tr td a[href^="/patients/"]').first();
-    await expect(firstPatientLink).toBeVisible();
-    await firstPatientLink.click();
+    const patientLink = page.getByRole("link", { name: /John Davis/i });
+    await expect(patientLink).toBeVisible();
+    await patientLink.click();
 
     await expect(page).toHaveURL(/\/patients\/[a-zA-Z0-9_-]+/);
+    await expect(page.getByRole("heading", { level: 1, name: /John Davis/i })).toBeVisible();
 
     // 4. Verify Visits tab is hidden for staff, while Overview tab is present
     await expect(page.getByRole("tab", { name: /overview/i })).toBeVisible();

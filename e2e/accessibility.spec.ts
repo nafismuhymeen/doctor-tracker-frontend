@@ -108,12 +108,13 @@ test.describe("E2E: Accessibility Audits (@axe-core/playwright)", () => {
       await page.goto("/doctors");
       await expect(page.getByRole("heading", { level: 1, name: /doctor management/i })).toBeVisible();
 
-      const firstProfileLink = page.locator('table tbody tr td a[href^="/doctors/"]').first();
-      await expect(firstProfileLink).toBeVisible();
-      await firstProfileLink.click();
+      // Explicitly open seeded doctor Dr. Sarah Johnson's profile
+      const sarahRow = page.locator("tr").filter({ hasText: "Dr. Sarah Johnson" });
+      await expect(sarahRow).toBeVisible();
+      await sarahRow.getByRole("link", { name: /roster & profile/i }).click();
 
       await expect(page).toHaveURL(/\/doctors\/[a-zA-Z0-9_-]+/);
-      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: /Dr\. Sarah Johnson/i })).toBeVisible();
 
       const results = await new AxeBuilder({ page })
         .withTags(["wcag2a", "wcag2aa"])
@@ -147,12 +148,13 @@ test.describe("E2E: Accessibility Audits (@axe-core/playwright)", () => {
       await page.goto("/patients");
       await expect(page.getByRole("heading", { level: 1, name: /patient management/i })).toBeVisible();
 
-      const firstPatientLink = page.locator('table tbody tr td a[href^="/patients/"]').first();
-      await expect(firstPatientLink).toBeVisible();
-      await firstPatientLink.click();
+      // Explicitly open seeded patient John Davis's profile
+      const patientLink = page.getByRole("link", { name: /John Davis/i });
+      await expect(patientLink).toBeVisible();
+      await patientLink.click();
 
       await expect(page).toHaveURL(/\/patients\/[a-zA-Z0-9_-]+/);
-      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: /John Davis/i })).toBeVisible();
 
       // 1. Overview tab scan
       await expect(page.getByRole("tab", { name: /overview/i })).toBeVisible();

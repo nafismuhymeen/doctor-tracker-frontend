@@ -127,6 +127,8 @@ jobs:
           ACCESS_TOKEN_TTL_MINUTES=1 \
           CORS_ORIGIN="http://localhost:3000" \
           COOKIE_SAME_SITE="lax" \
+          AUTH_RATE_LIMIT_MAX=1000 \
+          GENERAL_RATE_LIMIT_MAX=100000 \
           nohup yarn dev > backend.log 2>&1 &
 
           echo "Waiting for backend API /api/v1/health..."
@@ -210,6 +212,7 @@ jobs:
           name: playwright-artifacts
           path: |
             frontend/playwright-report/
+            frontend/test-results/
             backend/backend.log
             frontend/frontend.log
           retention-days: 7

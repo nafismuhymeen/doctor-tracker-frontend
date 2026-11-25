@@ -18,25 +18,40 @@ test.describe("E2E: Appointment Booking Flow & Slot Conflict Prevention", () => 
     await expect(page.getByRole("dialog")).toBeVisible();
     await expect(page.getByRole("heading", { name: /book appointment/i })).toBeVisible();
 
-    // 4. Select Doctor
+    // 4. Select Doctor by NAME ("Dr. Sarah Johnson", a seeded doctor with assigned patients)
     const doctorSelectTrigger = page.locator("#book-doctor");
     await expect(doctorSelectTrigger).toBeVisible();
     await doctorSelectTrigger.click();
-    const firstDoctorOption = page.getByRole("option").first();
-    await expect(firstDoctorOption).toBeVisible();
-    await firstDoctorOption.click();
 
-    // 5. Select Patient
+    const sarahOption = page.getByRole("option", { name: /Dr\. Sarah Johnson/i });
+    await expect(sarahOption).toBeVisible();
+    await sarahOption.click();
+
+    // 5. Set the date explicitly: compute a Tuesday at least 7 days from today (Mon-Fri working hours)
+    const targetDate = new Date();
+    targetDate.setDate(targetDate.getDate() + 7);
+    const daysUntilTuesday = (2 - targetDate.getDay() + 7) % 7;
+    targetDate.setDate(targetDate.getDate() + daysUntilTuesday);
+    const bookingDate = targetDate.toISOString().split("T")[0]; // yyyy-MM-dd
+
+    const dateInput = page.locator("input#book-date");
+    await expect(dateInput).toBeVisible();
+    await dateInput.fill(bookingDate);
+
+    // 6. Wait for the patient select (#book-patient) and available slot buttons to appear before clicking
     const patientSelectTrigger = page.locator("#book-patient");
     await expect(patientSelectTrigger).toBeVisible();
-    await patientSelectTrigger.click();
-    const firstPatientOption = page.getByRole("option").first();
-    await expect(firstPatientOption).toBeVisible();
-    await firstPatientOption.click();
 
-    // 6. Select first available time slot
     const availableSlotBtn = page.locator('button[aria-label*="available"]').first();
     await expect(availableSlotBtn).toBeVisible();
+
+    // Select seeded patient John Davis
+    await patientSelectTrigger.click();
+    const patientOption = page.getByRole("option", { name: /John Davis/i });
+    await expect(patientOption).toBeVisible();
+    await patientOption.click();
+
+    // Select the available slot
     await availableSlotBtn.click();
 
     // 7. Add unique reason and confirm booking
@@ -45,6 +60,7 @@ test.describe("E2E: Appointment Booking Flow & Slot Conflict Prevention", () => 
 
     const confirmBtn = page.getByRole("button", { name: /confirm booking/i });
     await expect(confirmBtn).toBeVisible();
+    await expect(confirmBtn).toBeEnabled();
     await confirmBtn.click();
 
     // 8. Assert successful booking toast
@@ -59,14 +75,19 @@ test.describe("E2E: Appointment Booking Flow & Slot Conflict Prevention", () => 
     await expect(page.getByText(uniqueReason)).toBeVisible();
 
     // 10. Verify race safety: Concurrent duplicate booking of the same slot triggers SLOT_TAKEN error
-    // Open New Appointment dialog again
     await newApptBtn.click();
-    await doctorSelectTrigger.click();
-    await firstDoctorOption.click();
-    await patientSelectTrigger.click();
-    await firstPatientOption.click();
+    await expect(page.getByRole("dialog")).toBeVisible();
 
-    // Select the next available slot
+    await doctorSelectTrigger.click();
+    await page.getByRole("option", { name: /Dr\. Sarah Johnson/i }).click();
+
+    await dateInput.fill(bookingDate);
+
+    await expect(patientSelectTrigger).toBeVisible();
+    await patientSelectTrigger.click();
+    await page.getByRole("option", { name: /John Davis/i }).click();
+
+    // Wait for slot buttons to load and select next available slot
     const nextSlotBtn = page.locator('button[aria-label*="available"]').first();
     await expect(nextSlotBtn).toBeVisible();
     await nextSlotBtn.click();
