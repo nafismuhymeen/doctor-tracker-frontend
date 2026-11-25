@@ -72,6 +72,14 @@ test.describe("E2E: Appointment Booking Flow & Slot Conflict Prevention", () => 
     await listViewBtn.click();
     await expect(listViewBtn).toHaveAttribute("aria-pressed", "true");
 
+    // Filter by practitioner (Dr. Sarah Johnson) to isolate her appointments and guarantee the slot is on page 1
+    const practitionerFilter = page.getByRole("combobox", { name: /filter by practitioner/i });
+    await expect(practitionerFilter).toBeVisible();
+    await practitionerFilter.click();
+    const docOption = page.getByRole("option", { name: /Sarah Johnson/i });
+    await expect(docOption).toBeVisible();
+    await docOption.click();
+
     await expect(page.getByText(uniqueReason)).toBeVisible();
 
     // 10. Verify race safety: Concurrent duplicate booking of the same slot triggers SLOT_TAKEN error

@@ -9,7 +9,7 @@ test.describe("E2E: Immutable Audit Trail & Inspection", () => {
     // 2. Navigate to /audit
     await page.goto("/audit");
     await expect(page.getByRole("heading", { level: 1, name: /audit logs/i })).toBeVisible();
-    await expect(page.getByText(/audit logs are immutable and append-only/i)).toBeVisible();
+    await expect(page.getByText("Append-only", { exact: true })).toBeVisible();
 
     // 3. Verify audit log table is populated with events
     const firstRowViewBtn = page.locator("table tbody tr").first().getByRole("button", { name: /view/i });
