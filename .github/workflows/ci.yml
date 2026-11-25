@@ -54,7 +54,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: nafismuhymeen/doctor-tracker-backend
-          ref: appointment # TODO: change to main after backend appointment branch is merged
+          ref: main
           path: backend
 
       - name: Setup Node.js
@@ -62,18 +62,48 @@ jobs:
         with:
           node-version: 22
 
-      - name: Start MongoDB Replica Set via Docker Compose
+      - name: Start MongoDB Replica Set
         run: |
-          cd backend
-          docker compose up -d mongo
-          # Wait for MongoDB replica set healthcheck
-          until [ "$(docker inspect --format='{{json .State.Health.Status}}' doctor_tracker_mongo 2>/dev/null)" == '"healthy"' ]; do
-            echo "Waiting for MongoDB replica set to initialize..."
+          set -euo pipefail
+          docker run -d --name doctor_tracker_mongo -p 27017:27017 mongo:7-jammy --replSet rs0 --bind_ip_all
+
+          echo "Waiting for MongoDB admin ping..."
+          ready=0
+          for i in {1..30}; do
+            if [ "$(docker exec doctor_tracker_mongo mongosh --quiet --eval "db.adminCommand('ping').ok" 2>/dev/null || true)" = "1" ]; then
+              ready=1
+              break
+            fi
+            echo "Waiting for mongod to respond... ($i/30)"
             sleep 2
           done
+          if [ "$ready" -ne 1 ]; then
+            echo "MongoDB failed to respond to ping"
+            exit 1
+          fi
+
+          echo "Initiating replica set rs0 with localhost:27017..."
+          docker exec doctor_tracker_mongo mongosh --quiet --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"localhost:27017"}]})'
+
+          echo "Waiting for replica set primary state..."
+          primary=0
+          for i in {1..30}; do
+            if [ "$(docker exec doctor_tracker_mongo mongosh --quiet --eval "rs.status().myState" 2>/dev/null || true)" = "1" ]; then
+              primary=1
+              break
+            fi
+            echo "Waiting for replica set primary... ($i/30)"
+            sleep 2
+          done
+          if [ "$primary" -ne 1 ]; then
+            echo "Replica set failed to elect a primary"
+            exit 1
+          fi
+          echo "MongoDB replica set rs0 is ready on localhost:27017!"
 
       - name: Install backend dependencies and seed demo data
         run: |
+          set -euo pipefail
           cd backend
           yarn install --frozen-lockfile --ignore-engines
           CLIENT_URLS="http://localhost:3000" \
@@ -86,6 +116,7 @@ jobs:
 
       - name: Start backend API server
         run: |
+          set -euo pipefail
           cd backend
           CLIENT_URLS="http://localhost:3000" \
           MONGODB_URI="mongodb://localhost:27017/doctor_tracker?replicaSet=rs0" \
@@ -99,23 +130,31 @@ jobs:
           nohup yarn dev > backend.log 2>&1 &
 
           echo "Waiting for backend API /api/v1/health..."
+          ready=0
           for i in {1..30}; do
             if curl -sf http://localhost:5000/api/v1/health | grep -q '"success":true'; then
               echo "API is healthy and ready!"
+              ready=1
               break
             fi
             echo "Waiting for backend API... ($i/30)"
             sleep 2
           done
+          if [ "$ready" -ne 1 ]; then
+            echo "Backend API failed to become healthy"
+            exit 1
+          fi
 
       - name: Install frontend dependencies and Playwright browsers
         run: |
+          set -euo pipefail
           cd frontend
           yarn install --frozen-lockfile --ignore-engines
           npx playwright install --with-deps chromium
 
       - name: Build and start frontend application
         run: |
+          set -euo pipefail
           cd frontend
           NEXT_PUBLIC_API_URL="/api/v1" \
           BACKEND_INTERNAL_URL="http://localhost:5000" \
@@ -126,20 +165,43 @@ jobs:
           nohup yarn start -p 3000 > frontend.log 2>&1 &
 
           echo "Waiting for frontend server /api/v1/health proxy..."
+          ready=0
           for i in {1..30}; do
             if curl -sf http://localhost:3000/api/v1/health | grep -q '"success":true'; then
               echo "Frontend rewrite proxy to backend is operational!"
+              ready=1
               break
             fi
             echo "Waiting for frontend proxy... ($i/30)"
             sleep 2
           done
+          if [ "$ready" -ne 1 ]; then
+            echo "Frontend server failed to become ready"
+            exit 1
+          fi
 
       - name: Run Playwright E2E and Axe scans
         run: |
+          set -euo pipefail
           cd frontend
           PLAYWRIGHT_BASE_URL="http://localhost:3000" \
           yarn test:e2e
+
+      - name: Display server logs on failure
+        if: failure()
+        run: |
+          echo "=== Backend Log ==="
+          if [ -f backend/backend.log ]; then
+            cat backend/backend.log
+          else
+            echo "backend/backend.log not found"
+          fi
+          echo "=== Frontend Log ==="
+          if [ -f frontend/frontend.log ]; then
+            cat frontend/frontend.log
+          else
+            echo "frontend/frontend.log not found"
+          fi
 
       - name: Upload Playwright report and logs on failure
         if: failure()
