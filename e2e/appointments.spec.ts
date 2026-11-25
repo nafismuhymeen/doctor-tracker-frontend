@@ -42,7 +42,7 @@ test.describe("E2E: Appointment Booking Flow & Slot Conflict Prevention", () => 
     const patientSelectTrigger = page.locator("#book-patient");
     await expect(patientSelectTrigger).toBeVisible();
 
-    const availableSlotBtn = page.locator('button[aria-label*="available"]').first();
+    const availableSlotBtn = page.locator('button[aria-label$=", available"]').first();
     await expect(availableSlotBtn).toBeVisible();
 
     // Select seeded patient John Davis
@@ -64,7 +64,7 @@ test.describe("E2E: Appointment Booking Flow & Slot Conflict Prevention", () => 
     await confirmBtn.click();
 
     // 8. Assert successful booking toast
-    await expect(page.getByText(/appointment booked successfully/i)).toBeVisible();
+    await expect(page.getByText("Appointment booked successfully", { exact: true })).toBeVisible();
 
     // 9. Switch to list view to verify booking appears
     const listViewBtn = page.getByRole("button", { name: /^list$/i });
@@ -95,9 +95,14 @@ test.describe("E2E: Appointment Booking Flow & Slot Conflict Prevention", () => 
     await patientSelectTrigger.click();
     await page.getByRole("option", { name: /John Davis/i }).click();
 
+    // Wait for slot list to refetch and verify the previously booked slot is marked unavailable
+    const unavailableSlot = page.locator('button[aria-label$=", unavailable"]').first();
+    await expect(unavailableSlot).toBeVisible();
+
     // Wait for slot buttons to load and select next available slot
-    const nextSlotBtn = page.locator('button[aria-label*="available"]').first();
+    const nextSlotBtn = page.locator('button[aria-label$=", available"]').first();
     await expect(nextSlotBtn).toBeVisible();
+    await expect(nextSlotBtn).toBeEnabled();
     await nextSlotBtn.click();
 
     // Intercept next appointment POST to simulate concurrent booking conflict
@@ -122,6 +127,6 @@ test.describe("E2E: Appointment Booking Flow & Slot Conflict Prevention", () => 
     await confirmBtn.click();
 
     // Expect the UI to handle SLOT_TAKEN by alerting the user that slot was just booked
-    await expect(page.getByText(/slot unavailable|that slot was just booked/i)).toBeVisible();
+    await expect(page.getByText("Slot Unavailable", { exact: true })).toBeVisible();
   });
 });

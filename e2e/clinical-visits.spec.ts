@@ -48,7 +48,7 @@ test.describe("E2E: Clinical Visits & Addenda Workflow", () => {
     await saveVisitBtn.click();
 
     // 8. Assert successful visit creation toast
-    await expect(page.getByText(/clinical visit recorded/i)).toBeVisible();
+    await expect(page.getByText("Clinical visit recorded", { exact: true })).toBeVisible();
 
     // 9. Assert that the visit card is displayed in the timeline
     await expect(page.getByText(chiefComplaintText)).toBeVisible();
@@ -68,7 +68,7 @@ test.describe("E2E: Clinical Visits & Addenda Workflow", () => {
     await saveAddendumBtn.click();
 
     // 13. Verify toast and that addendum is permanently rendered on the visit card
-    await expect(page.getByText(/addendum added/i)).toBeVisible();
+    await expect(page.getByText("Addendum added", { exact: true })).toBeVisible();
     await expect(page.getByText(addendumText)).toBeVisible();
   });
 });

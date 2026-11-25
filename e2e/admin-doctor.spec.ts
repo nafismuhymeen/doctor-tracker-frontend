@@ -62,6 +62,6 @@ test.describe("E2E: Admin Doctor Creation & Clinical Schedule Configuration", ()
     await page.getByRole("button", { name: /save schedule/i }).click();
 
     // 11. Assert schedule was saved successfully
-    await expect(page.getByText(/schedule updated successfully/i)).toBeVisible();
+    await expect(page.getByText("Schedule updated successfully", { exact: true })).toBeVisible();
   });
 });

@@ -81,7 +81,7 @@ test.describe("E2E: Authentication & Session Lifecycle", () => {
     await page.fill('input[type="password"]', "WrongPassword123!");
     await page.click('button[type="submit"]');
 
-    await expect(page.getByText(/invalid email or password/i)).toBeVisible();
+    await expect(page.getByText("Invalid email or password.", { exact: true })).toBeVisible();
     await expect(page).toHaveURL(/\/login/);
   });
 });
