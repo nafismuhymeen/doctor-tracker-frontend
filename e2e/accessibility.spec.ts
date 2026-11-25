@@ -39,7 +39,7 @@ test.describe("E2E: Accessibility Audits (@axe-core/playwright)", () => {
     await loginAs(page, "admin");
 
     await page.goto("/appointments");
-    await expect(page.getByRole("heading", { level: 1, name: /clinical appointments/i })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: /^appointments$/i })).toBeVisible();
 
     const accessibilityScanResults = await new AxeBuilder({ page })
       .withTags(["wcag2a", "wcag2aa"])

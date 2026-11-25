@@ -15,7 +15,7 @@ test.describe("E2E: Clinical Visits & Addenda Workflow", () => {
 
     // 2. Navigate to appointments list view
     await page.goto("/appointments?view=list");
-    await expect(page.getByRole("heading", { level: 1, name: /clinical appointments/i })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: /^appointments$/i })).toBeVisible();
 
     // 3. Open details on a past appointment
     const detailsBtn = page.getByRole("button", { name: /details/i }).first();
@@ -47,7 +47,7 @@ test.describe("E2E: Clinical Visits & Addenda Workflow", () => {
 
     // 9. Navigate to Patients directory to view the recorded visit timeline
     await page.goto("/patients");
-    await expect(page.getByRole("heading", { level: 1, name: /patient directory/i })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: /patient management/i })).toBeVisible();
 
     // Click on the first patient
     const patientRowLink = page.locator('table tbody tr td a[href^="/patients/"]').first();

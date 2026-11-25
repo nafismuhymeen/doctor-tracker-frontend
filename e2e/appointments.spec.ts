@@ -8,7 +8,7 @@ test.describe("E2E: Appointment Booking Flow & Slot Conflict Prevention", () => 
 
     // 2. Navigate to /appointments
     await page.goto("/appointments");
-    await expect(page.getByRole("heading", { level: 1, name: /clinical appointments/i })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: /^appointments$/i })).toBeVisible();
 
     // 3. Open New Appointment dialog
     const newApptBtn = page.getByRole("button", { name: /new appointment/i });
