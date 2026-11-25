@@ -1,22 +1,15 @@
 import { test, expect } from "@playwright/test";
-
-const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL || "admin@clinic.com";
-const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD || "Password123!";
+import { loginAs } from "./helpers";
 
 test.describe("E2E: Immutable Audit Trail & Inspection", () => {
   test("admin accesses /audit, reviews system event log entries, and inspects diff details", async ({ page }) => {
     // 1. Log in as admin
-    await page.goto("/login");
-    await page.fill('input[type="email"]', ADMIN_EMAIL);
-    await page.fill('input[type="password"]', ADMIN_PASSWORD);
-    await page.click('button[type="submit"]');
-
-    await expect(page).toHaveURL(/\/dashboard/);
+    await loginAs(page, "admin");
 
     // 2. Navigate to /audit
     await page.goto("/audit");
-    await expect(page.locator("h1")).toContainText(/audit logs/i);
-    await expect(page.getByText(/append-only/i)).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: /system security audit trail/i })).toBeVisible();
+    await expect(page.getByText(/audit logs are immutable and append-only/i)).toBeVisible();
 
     // 3. Verify audit log table is populated with events
     const firstRowViewBtn = page.locator("table tbody tr").first().getByRole("button", { name: /view/i });
@@ -40,4 +33,3 @@ test.describe("E2E: Immutable Audit Trail & Inspection", () => {
     await expect(page).toHaveURL(/action=auth\.login\.failure/);
   });
 });
-

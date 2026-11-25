@@ -1,7 +1,5 @@
 import { test, expect } from "@playwright/test";
-
-const DOCTOR_EMAIL = process.env.E2E_DOCTOR_EMAIL || "doctor@clinic.com";
-const DOCTOR_PASSWORD = process.env.E2E_DOCTOR_PASSWORD || "Password123!";
+import { loginAs } from "./helpers";
 
 test.describe("E2E: Clinical Visits & Addenda Workflow", () => {
   test("doctor records a visit from a past appointment, then adds an append-only addendum", async ({ page }) => {
@@ -12,19 +10,14 @@ test.describe("E2E: Clinical Visits & Addenda Workflow", () => {
     const addendumText = `Supplemental clinical addendum noted on ${uniqueId}. Lab tests confirmed normal.`;
 
     // 1. Log in as treating doctor
-    await page.goto("/login");
-    await page.fill('input[type="email"]', DOCTOR_EMAIL);
-    await page.fill('input[type="password"]', DOCTOR_PASSWORD);
-    await page.click('button[type="submit"]');
-
+    await loginAs(page, "doctor");
     await expect(page).toHaveURL(/\/(dashboard|appointments)/);
 
     // 2. Navigate to appointments list view
     await page.goto("/appointments?view=list");
-    await expect(page.locator("h1")).toContainText(/appointments/i);
+    await expect(page.getByRole("heading", { level: 1, name: /clinical appointments/i })).toBeVisible();
 
     // 3. Open details on a past appointment
-    // Find appointment row and click Details
     const detailsBtn = page.getByRole("button", { name: /details/i }).first();
     await expect(detailsBtn).toBeVisible();
     await detailsBtn.click();
@@ -54,7 +47,7 @@ test.describe("E2E: Clinical Visits & Addenda Workflow", () => {
 
     // 9. Navigate to Patients directory to view the recorded visit timeline
     await page.goto("/patients");
-    await expect(page.locator("h1")).toContainText(/patients/i);
+    await expect(page.getByRole("heading", { level: 1, name: /patient directory/i })).toBeVisible();
 
     // Click on the first patient
     const patientRowLink = page.locator('table tbody tr td a[href^="/patients/"]').first();
@@ -63,8 +56,8 @@ test.describe("E2E: Clinical Visits & Addenda Workflow", () => {
 
     await expect(page).toHaveURL(/\/patients\/[a-zA-Z0-9_-]+/);
 
-    // 10. Switch to Clinical Visits tab
-    const visitsTab = page.getByRole("tab", { name: /clinical visits/i });
+    // 10. Switch to Visits tab
+    const visitsTab = page.getByRole("tab", { name: /visits/i });
     await expect(visitsTab).toBeVisible();
     await visitsTab.click();
 

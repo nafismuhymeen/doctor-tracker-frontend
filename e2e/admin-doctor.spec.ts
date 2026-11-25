@@ -1,7 +1,5 @@
 import { test, expect } from "@playwright/test";
-
-const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL || "admin@clinic.com";
-const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD || "Password123!";
+import { loginAs } from "./helpers";
 
 test.describe("E2E: Admin Doctor Creation & Clinical Schedule Configuration", () => {
   test("admin creates a doctor with unique credentials and sets a weekly schedule", async ({ page }) => {
@@ -11,15 +9,11 @@ test.describe("E2E: Admin Doctor Creation & Clinical Schedule Configuration", ()
     const doctorPhone = `+1 (555) ${Math.floor(1000000 + Math.random() * 9000000)}`;
 
     // 1. Log in as admin
-    await page.goto("/login");
-    await page.fill('input[type="email"]', ADMIN_EMAIL);
-    await page.fill('input[type="password"]', ADMIN_PASSWORD);
-    await page.click('button[type="submit"]');
-    await expect(page).toHaveURL(/\/dashboard/);
+    await loginAs(page, "admin");
 
     // 2. Navigate to /doctors
     await page.goto("/doctors");
-    await expect(page.locator("h1")).toContainText(/practitioners|doctors/i);
+    await expect(page.getByRole("heading", { level: 1, name: /doctor management/i })).toBeVisible();
 
     // 3. Open Create Doctor Dialog
     const addDoctorBtn = page.getByRole("button", { name: /add doctor/i });
@@ -30,23 +24,26 @@ test.describe("E2E: Admin Doctor Creation & Clinical Schedule Configuration", ()
     await expect(page.getByRole("heading", { name: /add new doctor/i })).toBeVisible();
 
     // 4. Fill doctor registration details
-    await page.fill('input#name', doctorName);
-    await page.fill('input#specialization', "Endocrinology");
-    await page.fill('input#hospital', "City Central Hospital");
-    await page.fill('input#phone', doctorPhone);
-    await page.fill('input#email', doctorEmail);
+    await page.fill("input#name", doctorName);
+    await page.fill("input#specialization", "Endocrinology");
+    await page.fill("input#hospital", "City Central Hospital");
+    await page.fill("input#phone", doctorPhone);
+    await page.fill("input#email", doctorEmail);
 
     // 5. Submit form
     await page.getByRole("button", { name: /save doctor/i }).click();
 
     // 6. Verify doctor appears in directory list
-    const doctorLink = page.getByRole("link", { name: doctorName });
-    await expect(doctorLink).toBeVisible();
+    const doctorRow = page.locator("tr").filter({ hasText: doctorName });
+    await expect(doctorRow).toBeVisible();
 
-    // 7. Open newly created doctor profile
-    await doctorLink.click();
+    // 7. Open newly created doctor profile via action link
+    const profileLink = doctorRow.getByRole("link", { name: /roster & profile/i });
+    await expect(profileLink).toBeVisible();
+    await profileLink.click();
+
     await expect(page).toHaveURL(/\/doctors\/[a-zA-Z0-9_-]+/);
-    await expect(page.locator("h1")).toContainText(doctorName);
+    await expect(page.getByRole("heading", { level: 1, name: doctorName })).toBeVisible();
 
     // 8. Open Schedule Editor Dialog
     const configureScheduleBtn = page.getByRole("button", { name: /configure/i });
@@ -68,4 +65,3 @@ test.describe("E2E: Admin Doctor Creation & Clinical Schedule Configuration", ()
     await expect(page.getByText(/schedule updated successfully/i)).toBeVisible();
   });
 });
-

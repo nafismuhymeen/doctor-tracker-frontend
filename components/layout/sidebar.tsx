@@ -96,9 +96,9 @@ export function Sidebar({ className, onItemClick }: SidebarProps) {
                     <HeartPulse className="h-6 w-6 animate-pulse" />
                 </div>
                 <div>
-                    <h1 className="text-base font-bold tracking-tight">
+                    <div className="text-base font-bold tracking-tight">
                         Doctor Tracker
-                    </h1>
+                    </div>
                     <p className="text-xs text-muted-foreground">{portalTitle}</p>
                 </div>
             </div>

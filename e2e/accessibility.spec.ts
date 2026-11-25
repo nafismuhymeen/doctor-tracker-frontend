@@ -1,12 +1,11 @@
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
-
-const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL || "admin@clinic.com";
-const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD || "Password123!";
+import { loginAs } from "./helpers";
 
 test.describe("E2E: Accessibility Audits (@axe-core/playwright)", () => {
   test("login page passes accessibility scan", async ({ page }) => {
     await page.goto("/login");
+    await expect(page.getByRole("heading", { level: 1, name: /doctor tracker/i })).toBeVisible();
 
     const accessibilityScanResults = await new AxeBuilder({ page })
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
@@ -21,11 +20,8 @@ test.describe("E2E: Accessibility Audits (@axe-core/playwright)", () => {
   });
 
   test("authenticated dashboard passes accessibility scan", async ({ page }) => {
-    await page.goto("/login");
-    await page.fill('input[type="email"]', ADMIN_EMAIL);
-    await page.fill('input[type="password"]', ADMIN_PASSWORD);
-    await page.click('button[type="submit"]');
-    await expect(page).toHaveURL(/\/dashboard/);
+    await loginAs(page, "admin");
+    await expect(page.getByRole("heading", { level: 1, name: /clinical dashboard/i })).toBeVisible();
 
     const accessibilityScanResults = await new AxeBuilder({ page })
       .withTags(["wcag2a", "wcag2aa"])
@@ -40,13 +36,10 @@ test.describe("E2E: Accessibility Audits (@axe-core/playwright)", () => {
   });
 
   test("appointments calendar passes accessibility scan", async ({ page }) => {
-    await page.goto("/login");
-    await page.fill('input[type="email"]', ADMIN_EMAIL);
-    await page.fill('input[type="password"]', ADMIN_PASSWORD);
-    await page.click('button[type="submit"]');
+    await loginAs(page, "admin");
 
     await page.goto("/appointments");
-    await expect(page.locator("h1")).toContainText(/appointments/i);
+    await expect(page.getByRole("heading", { level: 1, name: /clinical appointments/i })).toBeVisible();
 
     const accessibilityScanResults = await new AxeBuilder({ page })
       .withTags(["wcag2a", "wcag2aa"])
@@ -60,4 +53,3 @@ test.describe("E2E: Accessibility Audits (@axe-core/playwright)", () => {
     expect(criticalViolations).toEqual([]);
   });
 });
-

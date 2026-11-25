@@ -1,84 +1,76 @@
 import { test, expect } from "@playwright/test";
-
-const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL || "admin@clinic.com";
-const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD || "Password123!";
-const STAFF_EMAIL = process.env.E2E_STAFF_EMAIL || "staff@clinic.com";
-const STAFF_PASSWORD = process.env.E2E_STAFF_PASSWORD || "Password123!";
-const DOCTOR_EMAIL = process.env.E2E_DOCTOR_EMAIL || "doctor@clinic.com";
-const DOCTOR_PASSWORD = process.env.E2E_DOCTOR_PASSWORD || "Password123!";
-const VIEWER_EMAIL = process.env.E2E_VIEWER_EMAIL || "viewer@clinic.com";
-const VIEWER_PASSWORD = process.env.E2E_VIEWER_PASSWORD || "Password123!";
+import { loginAs } from "./helpers";
 
 test.describe("E2E: Authentication & Session Lifecycle", () => {
   test("allows admin to log in, navigate, and log out", async ({ page }) => {
-    await page.goto("/login");
-
-    await page.fill('input[type="email"]', ADMIN_EMAIL);
-    await page.fill('input[type="password"]', ADMIN_PASSWORD);
-    await page.click('button[type="submit"]');
+    await loginAs(page, "admin");
 
     await expect(page).toHaveURL(/\/dashboard/);
-    await expect(page.locator("h1")).toContainText(/dashboard/i);
+    await expect(page.getByRole("heading", { level: 1, name: /clinical dashboard/i })).toBeVisible();
 
     // Admin sees admin navigation items
     await expect(page.getByRole("link", { name: /audit logs/i })).toBeVisible();
 
-    // Sign out
-    await page.getByRole("button", { name: /clinic admin/i }).click();
-    await page.getByRole("menuitem", { name: /sign out$/i }).click();
+    // Sign out via header menu
+    const profileDropdown = page.locator("header").getByRole("button").filter({ hasText: /admin/i });
+    await expect(profileDropdown).toBeVisible();
+    await profileDropdown.click();
+
+    const signOutBtn = page.getByRole("menuitem", { name: /sign out$/i });
+    await expect(signOutBtn).toBeVisible();
+    await signOutBtn.click();
 
     await expect(page).toHaveURL(/\/login/);
+    await expect(page.getByRole("heading", { level: 1, name: /doctor tracker/i })).toBeVisible();
   });
 
   test("doctor and staff land on operational dashboards with role-scoped navigation", async ({ page }) => {
-    await page.goto("/login");
-    await page.fill('input[type="email"]', DOCTOR_EMAIL);
-    await page.fill('input[type="password"]', DOCTOR_PASSWORD);
-    await page.click('button[type="submit"]');
-
+    // 1. Doctor login
+    await loginAs(page, "doctor");
     await expect(page).toHaveURL(/\/(appointments|dashboard)/);
     await expect(page.getByRole("link", { name: /audit logs/i })).not.toBeVisible();
 
-    // Switch to staff
-    await page.goto("/login");
-    await page.fill('input[type="email"]', STAFF_EMAIL);
-    await page.fill('input[type="password"]', STAFF_PASSWORD);
-    await page.click('button[type="submit"]');
+    // Sign out
+    const docProfileDropdown = page.locator("header").getByRole("button").filter({ hasText: /doctor/i });
+    await docProfileDropdown.click();
+    await page.getByRole("menuitem", { name: /sign out$/i }).click();
+    await expect(page).toHaveURL(/\/login/);
 
+    // 2. Staff login
+    await loginAs(page, "staff");
     await expect(page).toHaveURL(/\/(dashboard|appointments)/);
     await expect(page.getByRole("link", { name: /appointments/i })).toBeVisible();
     await expect(page.getByRole("link", { name: /audit logs/i })).not.toBeVisible();
 
-    // Switch to viewer
-    await page.goto("/login");
-    await page.fill('input[type="email"]', VIEWER_EMAIL);
-    await page.fill('input[type="password"]', VIEWER_PASSWORD);
-    await page.click('button[type="submit"]');
+    // Sign out
+    const staffProfileDropdown = page.locator("header").getByRole("button").filter({ hasText: /staff/i });
+    await staffProfileDropdown.click();
+    await page.getByRole("menuitem", { name: /sign out$/i }).click();
+    await expect(page).toHaveURL(/\/login/);
 
+    // 3. Viewer login
+    await loginAs(page, "viewer");
     await expect(page).toHaveURL(/\/dashboard/);
+    await expect(page.getByRole("heading", { level: 1, name: /clinical dashboard/i })).toBeVisible();
     await expect(page.getByRole("link", { name: /audit logs/i })).not.toBeVisible();
   });
 
   test("session survives access-token expiry via transparent cookie refresh", async ({ page }) => {
     // 1. Staff logs in
-    await page.goto("/login");
-    await page.fill('input[type="email"]', STAFF_EMAIL);
-    await page.fill('input[type="password"]', STAFF_PASSWORD);
-    await page.click('button[type="submit"]');
-
+    await loginAs(page, "staff");
     await expect(page).toHaveURL(/\/(dashboard|appointments)/);
 
-    // 2. Clear only the access token cookie to simulate access-token expiry
-    // The refresh token cookie remains in the browser jar.
+    // 2. Clear only the access token cookie to simulate access-token expiry.
+    // The refresh token cookie remains in the browser cookie jar.
     await page.context().clearCookies({ name: "accessToken" });
 
-    // 3. Navigate to an authenticated page (/doctors)
+    // 3. Navigate to an authenticated page (/doctors).
     // The frontend receives a 401 on /api/v1/doctors, calls /api/v1/auth/refresh,
     // receives new tokens, and retries the request without redirecting to /login.
     await page.goto("/doctors");
 
     await expect(page).toHaveURL(/\/doctors/);
-    await expect(page.locator("h1")).toContainText(/practitioners|doctors/i);
+    await expect(page.getByRole("heading", { level: 1, name: /doctor management/i })).toBeVisible();
     await expect(page).not.toHaveURL(/\/login/);
   });
 
