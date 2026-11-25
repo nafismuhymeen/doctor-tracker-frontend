@@ -315,6 +315,7 @@ export function AppointmentsCalendar({
                                         <button
                                             key={appt._id}
                                             type="button"
+                                            aria-label={`Appointment for ${patientName} at ${startInfo.timeLabel}, status: ${appt.status}`}
                                             onClick={() => onSelectAppointment(appt)}
                                             style={{
                                                 top: `${Math.max(topPx, 0)}px`,

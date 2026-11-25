@@ -77,6 +77,7 @@ export function DatePicker({
                         <span
                             role="button"
                             tabIndex={0}
+                            aria-label="Clear date"
                             onClick={handleClear}
                             onKeyDown={(e) => {
                                 if (e.key === "Enter" || e.key === " ") {

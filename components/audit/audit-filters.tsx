@@ -246,6 +246,7 @@ export function AuditFilters({ filters, onChange, onReset }: AuditFiltersProps) 
                     <Input
                         type="text"
                         placeholder="Search ID..."
+                        aria-label="Search Entity ID"
                         value={filters.entityId || ""}
                         onChange={(e) => onChange({ entityId: e.target.value.trim() || undefined })}
                         className="h-8 text-xs font-mono"

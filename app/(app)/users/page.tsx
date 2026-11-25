@@ -343,6 +343,7 @@ export default function UsersPage() {
                                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                                 <Input
                                     placeholder="Search by name or email..."
+                                    aria-label="Search by name or email"
                                     value={search}
                                     onChange={(e) => {
                                         setSearch(e.target.value);

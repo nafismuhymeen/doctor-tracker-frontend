@@ -305,6 +305,7 @@ export default function PatientsPage() {
                                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                                 <Input
                                     placeholder="Search name or phone..."
+                                    aria-label="Search name or phone"
                                     value={search}
                                     onChange={(e) => {
                                         setSearch(e.target.value);
@@ -319,6 +320,7 @@ export default function PatientsPage() {
                                 <Activity className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                                 <Input
                                     placeholder="Filter condition..."
+                                    aria-label="Filter condition"
                                     value={condition}
                                     onChange={(e) => {
                                         setCondition(e.target.value);

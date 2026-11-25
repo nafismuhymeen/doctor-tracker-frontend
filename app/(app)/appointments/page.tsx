@@ -40,7 +40,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AppointmentsListTable } from "@/components/appointments/appointments-list-table";
 import { BookAppointmentDialog } from "@/components/appointments/book-appointment-dialog";
@@ -286,27 +285,46 @@ function AppointmentsContent() {
             {/* Filter and View Controls Toolbar */}
             <div className="rounded-lg border bg-card p-4 space-y-3 shadow-xs">
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-                    {/* View Selector Tabs */}
-                    <Tabs
-                        value={view}
-                        onValueChange={(v) => setView(v as "week" | "day" | "list")}
-                        className="w-auto"
+                    {/* View Selector Buttons */}
+                    <div
+                        role="group"
+                        aria-label="Calendar view"
+                        className="inline-flex items-center rounded-lg bg-muted p-1 text-muted-foreground w-auto sm:w-[260px] grid grid-cols-3 gap-1"
                     >
-                        <TabsList className="grid grid-cols-3 w-[260px]">
-                            <TabsTrigger value="week" className="text-xs gap-1">
-                                <CalendarDays className="h-3.5 w-3.5" />
-                                Week
-                            </TabsTrigger>
-                            <TabsTrigger value="day" className="text-xs gap-1">
-                                <Clock className="h-3.5 w-3.5" />
-                                Day
-                            </TabsTrigger>
-                            <TabsTrigger value="list" className="text-xs gap-1">
-                                <List className="h-3.5 w-3.5" />
-                                List
-                            </TabsTrigger>
-                        </TabsList>
-                    </Tabs>
+                        <Button
+                            type="button"
+                            variant={view === "week" ? "default" : "ghost"}
+                            size="sm"
+                            aria-pressed={view === "week"}
+                            onClick={() => setView("week")}
+                            className={`h-7 text-xs gap-1 ${view === "week" ? "shadow-xs" : "hover:text-foreground"}`}
+                        >
+                            <CalendarDays className="h-3.5 w-3.5" />
+                            Week
+                        </Button>
+                        <Button
+                            type="button"
+                            variant={view === "day" ? "default" : "ghost"}
+                            size="sm"
+                            aria-pressed={view === "day"}
+                            onClick={() => setView("day")}
+                            className={`h-7 text-xs gap-1 ${view === "day" ? "shadow-xs" : "hover:text-foreground"}`}
+                        >
+                            <Clock className="h-3.5 w-3.5" />
+                            Day
+                        </Button>
+                        <Button
+                            type="button"
+                            variant={view === "list" ? "default" : "ghost"}
+                            size="sm"
+                            aria-pressed={view === "list"}
+                            onClick={() => setView("list")}
+                            className={`h-7 text-xs gap-1 ${view === "list" ? "shadow-xs" : "hover:text-foreground"}`}
+                        >
+                            <List className="h-3.5 w-3.5" />
+                            List
+                        </Button>
+                    </div>
 
                     {/* Date Navigation Controls */}
                     <div className="flex flex-wrap items-center gap-1.5">
@@ -341,6 +359,7 @@ function AppointmentsContent() {
 
                         <Input
                             type="date"
+                            aria-label="Select date"
                             value={selectedDateStr}
                             onChange={(e) => setSelectedDateStr(e.target.value)}
                             className="h-8 text-xs w-[140px]"

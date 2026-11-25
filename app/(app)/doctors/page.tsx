@@ -257,6 +257,7 @@ export default function DoctorsPage() {
                                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                                 <Input
                                     placeholder="Search doctor..."
+                                    aria-label="Search doctor"
                                     value={search}
                                     onChange={(e) => {
                                         setSearch(e.target.value);
@@ -271,6 +272,7 @@ export default function DoctorsPage() {
                                 <Briefcase className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                                 <Input
                                     placeholder="Filter by specialty..."
+                                    aria-label="Filter by specialty"
                                     value={specialization}
                                     onChange={(e) => {
                                         setSpecialization(e.target.value);
@@ -285,6 +287,7 @@ export default function DoctorsPage() {
                                 <Building2 className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                                 <Input
                                     placeholder="Filter by hospital..."
+                                    aria-label="Filter by hospital"
                                     value={hospital}
                                     onChange={(e) => {
                                         setHospital(e.target.value);

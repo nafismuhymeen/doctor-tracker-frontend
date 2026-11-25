@@ -51,9 +51,10 @@ test.describe("E2E: Appointment Booking Flow & Slot Conflict Prevention", () => 
     await expect(page.getByText(/appointment booked successfully/i)).toBeVisible();
 
     // 9. Switch to list view to verify booking appears
-    const listViewTab = page.getByRole("tab", { name: /list/i });
-    await expect(listViewTab).toBeVisible();
-    await listViewTab.click();
+    const listViewBtn = page.getByRole("button", { name: /^list$/i });
+    await expect(listViewBtn).toBeVisible();
+    await listViewBtn.click();
+    await expect(listViewBtn).toHaveAttribute("aria-pressed", "true");
 
     await expect(page.getByText(uniqueReason)).toBeVisible();
 
