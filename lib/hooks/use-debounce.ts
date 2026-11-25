@@ -12,15 +12,13 @@ export function useDebounce<T>(value: T, delay: number = 400): T {
     const [debouncedValue, setDebouncedValue] = useState<T>(value);
 
     useEffect(() => {
-        // Immediate update when clearing input
-        if (value === "" || value === null || value === undefined) {
-            setDebouncedValue(value);
-            return;
-        }
-
-        const timer = setTimeout(() => {
-            setDebouncedValue(value);
-        }, delay);
+        const isImmediate = value === "" || value === null || value === undefined;
+        const timer = setTimeout(
+            () => {
+                setDebouncedValue(value);
+            },
+            isImmediate ? 0 : delay
+        );
 
         return () => {
             clearTimeout(timer);

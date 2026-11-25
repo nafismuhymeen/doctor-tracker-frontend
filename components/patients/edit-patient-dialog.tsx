@@ -108,7 +108,7 @@ export function EditPatientDialog({
             queryClient.invalidateQueries({ queryKey: ["dashboardStats"] });
             onOpenChange(false);
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
             const message =
                 error instanceof ApiError
                     ? error.message

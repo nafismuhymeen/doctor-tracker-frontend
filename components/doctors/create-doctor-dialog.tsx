@@ -81,7 +81,7 @@ export function CreateDoctorDialog() {
             reset();
             setOpen(false);
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
             const message =
                 error instanceof ApiError
                     ? error.message
@@ -106,7 +106,7 @@ export function CreateDoctorDialog() {
                 <DialogHeader>
                     <DialogTitle>Add New Doctor</DialogTitle>
                     <DialogDescription>
-                        Enter doctor's credentials and hospital affiliation.
+                        Enter doctor&apos;s credentials and hospital affiliation.
                     </DialogDescription>
                 </DialogHeader>
 

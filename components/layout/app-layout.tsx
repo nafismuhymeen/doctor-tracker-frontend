@@ -3,9 +3,11 @@
 import { useAuth } from "@/components/providers/auth-provider";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
+import { OfflineBanner } from "@/components/layout/offline-banner";
+import { CommandPalette } from "@/components/layout/command-palette";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
-    const { isLoading, admin } = useAuth();
+    const { isLoading, isAuthenticated } = useAuth();
 
     if (isLoading) {
         return (
@@ -20,7 +22,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         );
     }
 
-    if (!admin) {
+    if (!isAuthenticated) {
         return null;
     }
 
@@ -33,11 +35,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
             {/* Main content column */}
             <div className="flex flex-1 flex-col md:pl-64 min-w-0 max-w-full">
+                <OfflineBanner />
                 <Header />
                 <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto min-w-0">
                     {children}
                 </main>
             </div>
+
+            {/* Global Command Palette */}
+            <CommandPalette />
         </div>
     );
 }

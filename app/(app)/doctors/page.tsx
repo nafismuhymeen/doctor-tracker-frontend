@@ -18,12 +18,17 @@ import {
     RotateCcw,
     Building2,
     Briefcase,
+    Edit2,
+    Trash2,
 } from "lucide-react";
 
 import { api } from "@/lib/api";
 import { useDebounce } from "@/lib/hooks/use-debounce";
-import { AppLayout } from "@/components/layout/app-layout";
+import { useAuth } from "@/components/providers/auth-provider";
+import { qk } from "@/lib/query-keys";
 import { CreateDoctorDialog } from "@/components/doctors/create-doctor-dialog";
+import { EditDoctorDialog } from "@/components/doctors/edit-doctor-dialog";
+import { DeleteDoctorDialog } from "@/components/doctors/delete-doctor-dialog";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,6 +48,10 @@ import type { ApiResponse, Doctor, DoctorsResponse } from "@/types";
 const columnHelper = createColumnHelper<Doctor>();
 
 export default function DoctorsPage() {
+    const { can } = useAuth();
+    const canEditProfile = can("doctors.edit_profile");
+    const canDeleteDoctor = can("doctors.delete");
+
     // Filter & Pagination states
     const [page, setPage] = useState(1);
     const [limit] = useState(10);
@@ -51,6 +60,12 @@ export default function DoctorsPage() {
     const [hospital, setHospital] = useState("");
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
+
+    // Dialog states
+    const [editingDoctor, setEditingDoctor] = useState<Doctor | null>(null);
+    const [editOpen, setEditOpen] = useState(false);
+    const [deletingDoctor, setDeletingDoctor] = useState<Doctor | null>(null);
+    const [deleteOpen, setDeleteOpen] = useState(false);
 
     // Debounce text inputs to avoid repeated API requests while typing
     const debouncedSearch = useDebounce(search, 400);
@@ -76,7 +91,7 @@ export default function DoctorsPage() {
     }, [page, limit, debouncedSearch, debouncedSpecialization, debouncedHospital, startDate, endDate]);
 
     const { data: response, isLoading } = useQuery({
-        queryKey: ["doctors", queryParams],
+        queryKey: qk.doctors.list(queryParams),
         queryFn: () =>
             api.get<ApiResponse<DoctorsResponse>>(`/doctors?${queryParams}`),
     });
@@ -154,21 +169,51 @@ export default function DoctorsPage() {
                 id: "actions",
                 header: "Actions",
                 cell: ({ row }) => (
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-1.5 h-8 text-xs"
-                        asChild
-                    >
-                        <Link href={`/doctors/${row.original._id}`}>
-                            <Users className="h-3.5 w-3.5" />
-                            Patients
-                        </Link>
-                    </Button>
+                    <div className="flex items-center gap-1">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5 h-8 text-xs"
+                            asChild
+                        >
+                            <Link href={`/doctors/${row.original._id}`}>
+                                <Users className="h-3.5 w-3.5" />
+                                <span>Roster & Profile</span>
+                            </Link>
+                        </Button>
+                        {canEditProfile && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 hover:bg-muted"
+                                onClick={() => {
+                                    setEditingDoctor(row.original);
+                                    setEditOpen(true);
+                                }}
+                                title="Edit doctor details"
+                            >
+                                <Edit2 className="h-4 w-4 text-muted-foreground" />
+                            </Button>
+                        )}
+                        {canDeleteDoctor && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                onClick={() => {
+                                    setDeletingDoctor(row.original);
+                                    setDeleteOpen(true);
+                                }}
+                                title="Delete doctor"
+                            >
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                        )}
+                    </div>
                 ),
             }),
         ],
-        []
+        [canEditProfile, canDeleteDoctor]
     );
 
     const table = useReactTable({
@@ -180,21 +225,20 @@ export default function DoctorsPage() {
     });
 
     return (
-        <AppLayout>
-            <div className="space-y-6 min-w-0 max-w-full">
-                {/* Header with Title and Add Doctor dialog */}
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-                            Doctor Management
-                        </h1>
-                        <p className="text-sm text-muted-foreground mt-1">
-                            Search, filter, paginate, and manage doctors and their patient rosters
-                        </p>
-                    </div>
-
-                    <CreateDoctorDialog />
+        <div className="space-y-6 min-w-0 max-w-full">
+            {/* Header with Title and Add Doctor dialog */}
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+                        Doctor Management
+                    </h1>
+                    <p className="text-sm text-muted-foreground mt-1">
+                        Search, filter, paginate, and manage doctors and their patient rosters
+                    </p>
                 </div>
+
+                {can("doctors.create") && <CreateDoctorDialog />}
+            </div>
 
                 {/* Filters & Search Toolbar */}
                 <Card>
@@ -393,8 +437,21 @@ export default function DoctorsPage() {
                         )}
                     </CardContent>
                 </Card>
+
+                {/* Edit Doctor Dialog */}
+                <EditDoctorDialog
+                    doctor={editingDoctor}
+                    open={editOpen}
+                    onOpenChange={setEditOpen}
+                />
+
+                {/* Delete Doctor Dialog */}
+                <DeleteDoctorDialog
+                    doctor={deletingDoctor}
+                    open={deleteOpen}
+                    onOpenChange={setDeleteOpen}
+                />
             </div>
-        </AppLayout>
     );
 }
 
