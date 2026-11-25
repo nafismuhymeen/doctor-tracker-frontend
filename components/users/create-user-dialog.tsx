@@ -262,7 +262,7 @@ export function CreateUserDialog() {
                             }}
                             disabled={createMutation.isPending}
                         >
-                            <SelectTrigger id="role" className="w-full">
+                            <SelectTrigger id="role" className="w-full" aria-label="Role">
                                 <SelectValue placeholder="Select a role" />
                             </SelectTrigger>
                             <SelectContent>
@@ -293,7 +293,7 @@ export function CreateUserDialog() {
                                 }
                                 disabled={createMutation.isPending || isLoadingDoctors}
                             >
-                                <SelectTrigger id="doctorId" className="w-full bg-background">
+                                <SelectTrigger id="doctorId" className="w-full bg-background" aria-label="Link Doctor Practitioner">
                                     <SelectValue
                                         placeholder={
                                             isLoadingDoctors

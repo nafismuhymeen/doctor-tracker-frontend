@@ -235,6 +235,7 @@ export default function PatientsPage() {
                                               setEditDialogOpen(true);
                                           }}
                                           title="Edit patient details"
+                                          aria-label="Edit patient details"
                                       >
                                           <Edit2 className="h-4 w-4 text-muted-foreground" />
                                       </Button>
@@ -252,6 +253,7 @@ export default function PatientsPage() {
                                               deletingPatient?._id === row.original._id
                                           }
                                           title="Delete patient"
+                                          aria-label="Delete patient"
                                       >
                                           <Trash2 className="h-4 w-4" />
                                       </Button>
@@ -356,6 +358,7 @@ export default function PatientsPage() {
                                             className="h-9 w-9 shrink-0"
                                             onClick={handleReset}
                                             title="Clear all filters"
+                                            aria-label="Clear all filters"
                                         >
                                             <RotateCcw className="h-4 w-4" />
                                         </Button>

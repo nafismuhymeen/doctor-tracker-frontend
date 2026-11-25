@@ -265,14 +265,14 @@ export function DoctorPatientsDialog({
                                     </div>
 
                                     <div className="space-y-1">
-                                        <Label className="text-xs">Gender *</Label>
+                                        <Label htmlFor="patient-gender" className="text-xs">Gender *</Label>
                                         <Select
                                             defaultValue="male"
                                             onValueChange={(val: "male" | "female" | "other") =>
                                                 setValue("gender", val)
                                             }
                                         >
-                                            <SelectTrigger className="h-9">
+                                            <SelectTrigger id="patient-gender" className="h-9" aria-label="Gender">
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -394,6 +394,7 @@ export function DoctorPatientsDialog({
                                         }
                                         onClick={() => setPatientToDelete(patient)}
                                         title="Delete patient from doctor's list"
+                                        aria-label="Delete patient from doctor's list"
                                     >
                                         {deletePatientMutation.isPending &&
                                         patientToDelete?._id === patient._id ? (

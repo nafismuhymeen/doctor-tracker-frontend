@@ -682,6 +682,7 @@ export default function DoctorDetailPage() {
                                                         }
                                                         onClick={() => setPatientToRemove(patient)}
                                                         title="Remove patient from doctor's list"
+                                                        aria-label="Remove patient from doctor's list"
                                                     >
                                                         {deletePatientMutation.isPending &&
                                                         patientToRemove?._id === patient._id ? (

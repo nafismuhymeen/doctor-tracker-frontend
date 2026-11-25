@@ -320,7 +320,7 @@ export function BookAppointmentDialog({
                                 }}
                                 disabled={bookMutation.isPending || isLoadingDoctors}
                             >
-                                <SelectTrigger id="book-doctor" className="text-xs">
+                                <SelectTrigger id="book-doctor" className="text-xs" aria-label="Doctor practitioner">
                                     <SelectValue
                                         placeholder={
                                             isLoadingDoctors
@@ -470,7 +470,7 @@ export function BookAppointmentDialog({
                                     onValueChange={setSelectedPatientId}
                                     disabled={bookMutation.isPending}
                                 >
-                                    <SelectTrigger id="book-patient" className="text-xs">
+                                    <SelectTrigger id="book-patient" className="text-xs" aria-label="Assigned patient">
                                         <SelectValue placeholder="Select patient" />
                                     </SelectTrigger>
                                     <SelectContent>

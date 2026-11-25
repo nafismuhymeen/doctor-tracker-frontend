@@ -191,6 +191,7 @@ export default function DoctorsPage() {
                                     setEditOpen(true);
                                 }}
                                 title="Edit doctor details"
+                                aria-label="Edit doctor details"
                             >
                                 <Edit2 className="h-4 w-4 text-muted-foreground" />
                             </Button>
@@ -205,6 +206,7 @@ export default function DoctorsPage() {
                                     setDeleteOpen(true);
                                 }}
                                 title="Delete doctor"
+                                aria-label="Delete doctor"
                             >
                                 <Trash2 className="h-4 w-4" />
                             </Button>
@@ -323,6 +325,7 @@ export default function DoctorsPage() {
                                             className="h-9 w-9 shrink-0"
                                             onClick={handleReset}
                                             title="Clear all filters"
+                                            aria-label="Clear all filters"
                                         >
                                             <RotateCcw className="h-4 w-4" />
                                         </Button>

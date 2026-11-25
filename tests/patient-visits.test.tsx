@@ -742,7 +742,7 @@ describe("Phase F4: Patient detail and clinical visits", () => {
             fireEvent.change(screen.getByLabelText(/weight/i), { target: { value: "" } });
 
             // 3. Remove the prescription row
-            const removePrescriptionBtn = screen.getByRole("button", { name: "" }); // trash icon button inside prescription row
+            const removePrescriptionBtn = screen.getByRole("button", { name: /remove prescription/i });
             fireEvent.click(removePrescriptionBtn);
 
             // Submit update

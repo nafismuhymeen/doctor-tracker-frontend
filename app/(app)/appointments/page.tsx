@@ -316,6 +316,7 @@ function AppointmentsContent() {
                             onClick={handlePrev}
                             className="h-8 w-8 p-0"
                             title="Previous period"
+                            aria-label="Previous period"
                         >
                             <ChevronLeft className="h-4 w-4" />
                         </Button>
@@ -333,6 +334,7 @@ function AppointmentsContent() {
                             onClick={handleNext}
                             className="h-8 w-8 p-0"
                             title="Next period"
+                            aria-label="Next period"
                         >
                             <ChevronRight className="h-4 w-4" />
                         </Button>
@@ -379,7 +381,7 @@ function AppointmentsContent() {
                                 }}
                                 disabled={isLoadingDoctors}
                             >
-                                <SelectTrigger className="h-8 text-xs">
+                                <SelectTrigger className="h-8 text-xs" aria-label="Filter by practitioner">
                                     <SelectValue
                                         placeholder={
                                             isLoadingDoctors
@@ -417,7 +419,7 @@ function AppointmentsContent() {
                                 setPage(1);
                             }}
                         >
-                            <SelectTrigger className="h-8 text-xs">
+                            <SelectTrigger className="h-8 text-xs" aria-label="Filter by appointment status">
                                 <SelectValue placeholder="All Statuses" />
                             </SelectTrigger>
                             <SelectContent>

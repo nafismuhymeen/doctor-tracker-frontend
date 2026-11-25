@@ -203,7 +203,7 @@ export function AddPatientDialog({
                         </div>
 
                         <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">
+                            <Label htmlFor="add-patient-gender" className="text-xs font-medium">
                                 Gender <span className="text-destructive">*</span>
                             </Label>
                             <Select
@@ -212,7 +212,7 @@ export function AddPatientDialog({
                                     setValue("gender", val)
                                 }
                             >
-                                <SelectTrigger>
+                                <SelectTrigger id="add-patient-gender" aria-label="Gender">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>

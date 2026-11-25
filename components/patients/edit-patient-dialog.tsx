@@ -189,7 +189,7 @@ export function EditPatientDialog({
                                     setValue("gender", val)
                                 }
                             >
-                                <SelectTrigger id="edit-gender" className="h-9">
+                                <SelectTrigger id="edit-gender" className="h-9" aria-label="Gender">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>

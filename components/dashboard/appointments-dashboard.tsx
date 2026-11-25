@@ -116,7 +116,7 @@ export function AppointmentsDashboard({
                             setRange(val as "7d" | "30d" | "90d" | "1y" | "all")
                         }
                     >
-                        <SelectTrigger className="h-8 text-xs w-[120px]">
+                        <SelectTrigger className="h-8 text-xs w-[120px]" aria-label="Analysis range">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>

@@ -166,7 +166,7 @@ export function AuditFilters({ filters, onChange, onReset }: AuditFiltersProps) 
                         value={filters.action || "all"}
                         onValueChange={(val) => onChange({ action: val === "all" ? undefined : val })}
                     >
-                        <SelectTrigger className="h-8 text-xs">
+                        <SelectTrigger className="h-8 text-xs" aria-label="Filter by audit action">
                             <SelectValue placeholder="All actions" />
                         </SelectTrigger>
                         <SelectContent className="max-h-60">
@@ -187,7 +187,7 @@ export function AuditFilters({ filters, onChange, onReset }: AuditFiltersProps) 
                         value={filters.entityType || "all"}
                         onValueChange={(val) => onChange({ entityType: val === "all" ? undefined : val })}
                     >
-                        <SelectTrigger className="h-8 text-xs">
+                        <SelectTrigger className="h-8 text-xs" aria-label="Filter by audit entity type">
                             <SelectValue placeholder="All entity types" />
                         </SelectTrigger>
                         <SelectContent>
@@ -208,7 +208,7 @@ export function AuditFilters({ filters, onChange, onReset }: AuditFiltersProps) 
                         value={filters.outcome || "all"}
                         onValueChange={(val) => onChange({ outcome: val === "all" ? undefined : val })}
                     >
-                        <SelectTrigger className="h-8 text-xs">
+                        <SelectTrigger className="h-8 text-xs" aria-label="Filter by audit outcome">
                             <SelectValue placeholder="All outcomes" />
                         </SelectTrigger>
                         <SelectContent>
@@ -226,7 +226,7 @@ export function AuditFilters({ filters, onChange, onReset }: AuditFiltersProps) 
                         value={filters.actorId || "all"}
                         onValueChange={(val) => onChange({ actorId: val === "all" ? undefined : val })}
                     >
-                        <SelectTrigger className="h-8 text-xs">
+                        <SelectTrigger className="h-8 text-xs" aria-label="Filter by audit actor">
                             <SelectValue placeholder="All actors" />
                         </SelectTrigger>
                         <SelectContent className="max-h-60">

@@ -319,7 +319,7 @@ export function ScheduleEditorDialog({
                                 }
                                 disabled={updateScheduleMutation.isPending}
                             >
-                                <SelectTrigger id="sched-slot" className="bg-background text-xs">
+                                <SelectTrigger id="sched-slot" className="bg-background text-xs" aria-label="Slot duration">
                                     <SelectValue placeholder="Select duration" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -428,7 +428,7 @@ export function ScheduleEditorDialog({
                                                 }
                                                 disabled={updateScheduleMutation.isPending}
                                             >
-                                                <SelectTrigger className="h-8 text-xs">
+                                                <SelectTrigger className="h-8 text-xs" aria-label={`Day of week for shift ${index + 1}`}>
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent>

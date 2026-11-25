@@ -137,7 +137,7 @@ export default function DashboardPage() {
                                     value={timeRange}
                                     onValueChange={(val) => setTimeRange(val)}
                                 >
-                                    <SelectTrigger className="h-9">
+                                    <SelectTrigger className="h-9" aria-label="Statistics time range">
                                         <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
                                         <SelectValue placeholder="Select Range" />
                                     </SelectTrigger>
@@ -157,6 +157,7 @@ export default function DashboardPage() {
                                 className="h-9 w-9"
                                 onClick={() => refetch()}
                                 title="Refresh statistics"
+                                aria-label="Refresh statistics"
                             >
                                 <RefreshCw
                                     className={`h-4 w-4 ${isRefetching ? "animate-spin" : ""}`}

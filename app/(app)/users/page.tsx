@@ -272,6 +272,11 @@ export default function UsersPage() {
                                         ? "Edit user details (role & active status locked for self)"
                                         : "Edit user account & permissions"
                                 }
+                                aria-label={
+                                    isSelf
+                                        ? "Edit user details (role & active status locked for self)"
+                                        : "Edit user account & permissions"
+                                }
                             >
                                 <Edit2 className="h-4 w-4 text-muted-foreground" />
                             </Button>
@@ -284,6 +289,7 @@ export default function UsersPage() {
                                     setResetOpen(true);
                                 }}
                                 title="Reset user password"
+                                aria-label="Reset user password"
                             >
                                 <KeyRound className="h-4 w-4" />
                             </Button>
@@ -355,7 +361,7 @@ export default function UsersPage() {
                                         setPage(1);
                                     }}
                                 >
-                                    <SelectTrigger className="h-9 text-xs w-full">
+                                    <SelectTrigger className="h-9 text-xs w-full" aria-label="Filter by role">
                                         <SelectValue placeholder="All Roles" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -377,7 +383,7 @@ export default function UsersPage() {
                                         setPage(1);
                                     }}
                                 >
-                                    <SelectTrigger className="h-9 text-xs w-full">
+                                    <SelectTrigger className="h-9 text-xs w-full" aria-label="Filter by account status">
                                         <SelectValue placeholder="All Status" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -393,6 +399,7 @@ export default function UsersPage() {
                                         className="h-9 w-9 shrink-0"
                                         onClick={handleResetFilters}
                                         title="Clear all filters"
+                                        aria-label="Clear all filters"
                                     >
                                         <RotateCcw className="h-4 w-4" />
                                     </Button>

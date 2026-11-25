@@ -233,7 +233,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
                             }}
                             disabled={updateMutation.isPending || isSelf}
                         >
-                            <SelectTrigger id="edit-role" className="w-full">
+                            <SelectTrigger id="edit-role" className="w-full" aria-label="Role">
                                 <SelectValue placeholder="Select a role" />
                             </SelectTrigger>
                             <SelectContent>
@@ -264,7 +264,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
                                 }
                                 disabled={updateMutation.isPending || isLoadingDoctors || isSelf}
                             >
-                                <SelectTrigger id="edit-doctorId" className="w-full bg-background">
+                                <SelectTrigger id="edit-doctorId" className="w-full bg-background" aria-label="Link Doctor Practitioner">
                                     <SelectValue
                                         placeholder={
                                             isLoadingDoctors
@@ -305,7 +305,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
                             }
                             disabled={updateMutation.isPending || isSelf}
                         >
-                            <SelectTrigger id="edit-isActive" className="w-full">
+                            <SelectTrigger id="edit-isActive" className="w-full" aria-label="Account status">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>

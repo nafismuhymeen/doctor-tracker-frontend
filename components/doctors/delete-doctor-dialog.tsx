@@ -225,7 +225,7 @@ export function DeleteDoctorDialog({
                                         onValueChange={setReassignDoctorId}
                                         disabled={deleteMutation.isPending || isLoadingDoctors}
                                     >
-                                        <SelectTrigger id="reassign-select" className="w-full bg-background text-foreground">
+                                        <SelectTrigger id="reassign-select" className="w-full bg-background text-foreground" aria-label="Reassign patients to practitioner">
                                             <SelectValue
                                                 placeholder={
                                                     isLoadingDoctors
