@@ -134,9 +134,8 @@ yarn dev                 # http://localhost:3000
 `docker-compose.yml` runs MongoDB (replica set), the API (built from `../doctor-tracker-backend`) and this app behind the same-origin proxy.
 
 ```bash
-# Backend repository checked out next to this one
+# Backend repository checked out next to this one (JWT secret must be at least 32 characters)
 export JWT_ACCESS_SECRET="$(openssl rand -hex 32)"
-export JWT_REFRESH_SECRET="$(openssl rand -hex 32)"
 docker compose up --build
 # App: http://localhost:3000
 ```
