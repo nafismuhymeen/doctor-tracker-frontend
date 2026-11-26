@@ -5,7 +5,10 @@ A role-based clinic management web app: practitioners and their schedules, patie
 > **Live demo:** [Live Link](https://doctor-tracker-frontend-lime.vercel.app) · **Demo login (read-only viewer):** email: viewer@doctortracker.dev password: admin123 
 > All data is synthetic. This is a portfolio project and not a certified HIPAA-compliant system.
 
-<!-- TODO: add 4–6 current screenshots here (dashboard, appointments calendar, booking dialog, visit form, audit log, dark mode). The old WhatsApp screenshots show the pre-expansion UI. -->
+<img width="1919" height="915" alt="Screenshot_471" src="https://github.com/user-attachments/assets/9740b882-d6bf-498f-b878-51e158fa5f3e" />
+<img width="1907" height="918" alt="Screenshot_472" src="https://github.com/user-attachments/assets/7dd30d6e-586f-4ab0-a08b-cc0225269f72" />
+<img width="1908" height="920" alt="Screenshot_473" src="https://github.com/user-attachments/assets/24132b78-4d59-4880-8773-437b3e98f596" />
+<img width="1907" height="921" alt="Screenshot_474" src="https://github.com/user-attachments/assets/9085dc77-5eb4-4f6d-b4bc-cad9d16153ca" />
 
 ---
 
@@ -145,8 +148,6 @@ The compose file passes `BACKEND_INTERNAL_URL` and the `NEXT_PUBLIC_*` values as
 ---
 
 ## Deployment notes
-
-<!-- TODO: fill in once deployed: hosting provider, region, and the build arguments used. -->
 
 - Deploy the frontend with `BACKEND_INTERNAL_URL` set to the API's public URL **at build time**.
 - Serve both over HTTPS. The API sets `Secure` cookies when `NODE_ENV=production`.
