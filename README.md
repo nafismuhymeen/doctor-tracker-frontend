@@ -2,7 +2,7 @@
 
 A role-based clinic management web app: practitioners and their schedules, patients, appointment booking with conflict handling, clinical visit notes, and an admin audit trail. Built with **Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4 and TanStack Query**, on top of the [Doctor Tracker API](https://github.com/nafismuhymeen/doctor-tracker-backend) (Express 5, MongoDB).
 
-> **Live demo:** _TODO: add URL_ · **Demo login (read-only viewer):** _TODO: add email and password_
+> **Live demo:** [Live Link](https://doctor-tracker-frontend-lime.vercel.app) · **Demo login (read-only viewer):** email: viewer@doctortracker.dev password: admin123 
 > All data is synthetic. This is a portfolio project and not a certified HIPAA-compliant system.
 
 <!-- TODO: add 4–6 current screenshots here (dashboard, appointments calendar, booking dialog, visit form, audit log, dark mode). The old WhatsApp screenshots show the pre-expansion UI. -->
