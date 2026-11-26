@@ -210,9 +210,8 @@ export function AppointmentsCalendar({
                         return (
                             <div
                                 key={idx}
-                                className={`border-r last:border-r-0 py-2.5 px-1 transition-colors ${
-                                    dayActive ? "bg-primary/5 text-primary" : "text-foreground"
-                                } ${isDaySelected && view === "week" ? "ring-1 ring-primary/30" : ""}`}
+                                className={`border-r last:border-r-0 py-2.5 px-1 transition-colors ${dayActive ? "bg-primary/5 text-primary" : "text-foreground"
+                                    } ${isDaySelected && view === "week" ? "ring-1 ring-primary/30" : ""}`}
                             >
                                 <div className="text-[11px] font-normal text-muted-foreground">
                                     {DAY_NAMES[day.getDay()]}
@@ -233,7 +232,7 @@ export function AppointmentsCalendar({
                     className="grid relative"
                     style={{
                         gridTemplateColumns: `64px repeat(${days.length}, 1fr)`,
-                        height: `${(endHour - startHour) * 60}px`,
+                        height: `${(endHour - startHour) * 80}px`,
                     }}
                 >
                     {/* Time labels axis */}
@@ -242,7 +241,7 @@ export function AppointmentsCalendar({
                             <div
                                 key={h}
                                 className="absolute right-2 text-[10px] font-mono text-muted-foreground -translate-y-1/2"
-                                style={{ top: `${i * 60}px` }}
+                                style={{ top: `${i * 80}px` }}
                             >
                                 {String(h).padStart(2, "0")}:00
                             </div>
@@ -269,16 +268,15 @@ export function AppointmentsCalendar({
                         return (
                             <div
                                 key={colIdx}
-                                className={`border-r last:border-r-0 relative transition-colors ${
-                                    isDayOff ? "bg-muted/15" : "bg-card"
-                                }`}
+                                className={`border-r last:border-r-0 relative transition-colors ${isDayOff ? "bg-muted/15" : "bg-card"
+                                    }`}
                             >
                                 {/* Hour horizontal guideline lines */}
                                 {hours.map((_, i) => (
                                     <div
                                         key={i}
                                         className="absolute left-0 right-0 border-t border-border/40"
-                                        style={{ top: `${i * 60}px` }}
+                                        style={{ top: `${i * 80}px` }}
                                     />
                                 ))}
 
@@ -299,9 +297,9 @@ export function AppointmentsCalendar({
                                     const apptStartMins = startInfo.totalMinutes;
                                     const apptEndMins = endInfo.totalMinutes;
 
-                                    const topPx = ((apptStartMins - earliestMinutes) / totalMinutes) * ((endHour - startHour) * 60);
-                                    const rawHeight = ((apptEndMins - apptStartMins) / totalMinutes) * ((endHour - startHour) * 60);
-                                    const heightPx = Math.max(rawHeight - 2, 28);
+                                    const topPx = ((apptStartMins - earliestMinutes) / totalMinutes) * ((endHour - startHour) * 80);
+                                    const rawHeight = ((apptEndMins - apptStartMins) / totalMinutes) * ((endHour - startHour) * 80);
+                                    const heightPx = Math.max(rawHeight - 4, 36);
 
                                     const style = getStatusStyle(appt.status);
                                     const StatusIcon = style.icon;
