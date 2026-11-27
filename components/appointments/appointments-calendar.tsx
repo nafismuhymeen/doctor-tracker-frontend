@@ -20,6 +20,8 @@ interface AppointmentsCalendarProps {
     onSelectAppointment: (appointment: Appointment) => void;
 }
 
+const HOUR_HEIGHT_PX = 80;
+
 export function AppointmentsCalendar({
     appointments,
     doctor,
@@ -232,7 +234,7 @@ export function AppointmentsCalendar({
                     className="grid relative"
                     style={{
                         gridTemplateColumns: `64px repeat(${days.length}, 1fr)`,
-                        height: `${(endHour - startHour) * 80}px`,
+                        height: `${(endHour - startHour) * HOUR_HEIGHT_PX}px`,
                     }}
                 >
                     {/* Time labels axis */}
@@ -241,7 +243,7 @@ export function AppointmentsCalendar({
                             <div
                                 key={h}
                                 className="absolute right-2 text-[10px] font-mono text-muted-foreground -translate-y-1/2"
-                                style={{ top: `${i * 80}px` }}
+                                style={{ top: `${i * HOUR_HEIGHT_PX}px` }}
                             >
                                 {String(h).padStart(2, "0")}:00
                             </div>
@@ -276,7 +278,7 @@ export function AppointmentsCalendar({
                                     <div
                                         key={i}
                                         className="absolute left-0 right-0 border-t border-border/40"
-                                        style={{ top: `${i * 80}px` }}
+                                        style={{ top: `${i * HOUR_HEIGHT_PX}px` }}
                                     />
                                 ))}
 
@@ -297,8 +299,8 @@ export function AppointmentsCalendar({
                                     const apptStartMins = startInfo.totalMinutes;
                                     const apptEndMins = endInfo.totalMinutes;
 
-                                    const topPx = ((apptStartMins - earliestMinutes) / totalMinutes) * ((endHour - startHour) * 80);
-                                    const rawHeight = ((apptEndMins - apptStartMins) / totalMinutes) * ((endHour - startHour) * 80);
+                                    const topPx = ((apptStartMins - earliestMinutes) / totalMinutes) * ((endHour - startHour) * HOUR_HEIGHT_PX);
+                                    const rawHeight = ((apptEndMins - apptStartMins) / totalMinutes) * ((endHour - startHour) * HOUR_HEIGHT_PX);
                                     const heightPx = Math.max(rawHeight - 4, 36);
 
                                     const style = getStatusStyle(appt.status);
